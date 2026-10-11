@@ -7,6 +7,11 @@ names the cheesecloth version it packages plus a package revision, such as
 
 ## [Unreleased]
 
+## [0.4.0pre0-1] - 2026-10-11
+
+A test pre-release of the installer, for cheesecloth 0.4.0pre0. Not signed or
+notarized.
+
 ### Changed
 
 - The macOS installer moved here from the cheesecloth repository. `build.sh`
@@ -22,3 +27,5 @@ names the cheesecloth version it packages plus a package revision, such as
   packages. For a commit, CI builds the binary from source. For a release,
   it downloads the release binaries and checks them against the SHA-256
   values in the pin. The pin names the test release 0.4.0pre0.
+- Package releases. A tag `v<release>-<revision>` publishes the installers
+  and a `SHA256SUMS` file on this repository's releases.
