@@ -18,6 +18,7 @@ names the cheesecloth version it packages plus a package revision, such as
 
 ### Added
 
-- `cheesecloth.pin`, the cheesecloth commit that the installer packages. CI
-  builds the binary from source at that commit. It checks the release form
-  of the pin, but does not download release binaries yet.
+- `cheesecloth.pin`, the cheesecloth commit or release that the installer
+  packages. For a commit, CI builds the binary from source. For a release,
+  it downloads the release binaries and checks them against the SHA-256
+  values in the pin. The pin names the test release 0.4.0pre0.
