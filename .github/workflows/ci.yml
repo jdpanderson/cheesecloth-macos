@@ -38,14 +38,19 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
+      # Set for a commit pin.
       commit: ${{ steps.pin.outputs.commit }}
+      # Set for a release pin: the version, and the SHA-256 of each binary
+      # as a JSON object.
+      release: ${{ steps.pin.outputs.release }}
+      sha256: ${{ steps.pin.outputs.sha256 }}
+      # The cheesecloth commit or tag that the binary comes from.
+      ref: ${{ steps.pin.outputs.ref }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # The pin names a commit or a release; see README.md. CI builds the
-      # binary from source at a commit. It does not download release
-      # binaries yet.
+      # The pin names a commit or a release; see README.md.
       - name: Read cheesecloth.pin
         id: pin
         run: |
@@ -58,10 +63,13 @@ jobs:
                 exit 1
               fi
               echo "commit=$commit" >> "$GITHUB_OUTPUT"
+              echo "ref=$commit" >> "$GITHUB_OUTPUT"
               ;;
             '["release","sha256"]')
               release=$(jq -r .release <<< "$pin")
-              if [[ ! "$release" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              # The tag without its "v": X.Y.Z, maybe with a suffix such as
+              # "pre0", as cheesecloth's release check allows.
+              if [[ ! "$release" =~ ^[0-9]+\.[0-9]+\.[0-9]+([a-z-][0-9a-z.-]*)?$ ]]; then
                 echo "::error::the release in cheesecloth.pin is not a version: $release"
                 exit 1
               fi
@@ -70,8 +78,9 @@ jobs:
                 echo "::error::[sha256] in cheesecloth.pin must hold a SHA-256 for aarch64-apple-darwin and x86_64-apple-darwin"
                 exit 1
               fi
-              echo "::error::CI does not download release binaries yet; pin a commit"
-              exit 1
+              echo "release=$release" >> "$GITHUB_OUTPUT"
+              echo "sha256=$(jq -c .sha256 <<< "$pin")" >> "$GITHUB_OUTPUT"
+              echo "ref=v$release" >> "$GITHUB_OUTPUT"
               ;;
             *)
               echo "::error::cheesecloth.pin must hold either \"commit\", or \"release\" and [sha256]"
@@ -79,8 +88,9 @@ jobs:
               ;;
           esac
 
-  # Builds cheesecloth at the pinned commit. The tests run in cheesecloth's
-  # own CI.
+  # Gets the pinned cheesecloth binary in bin/cheesecloth: built from source
+  # at a pinned commit, or downloaded from a pinned release and checked
+  # against the pin. The tests run in cheesecloth's own CI.
   binary:
     name: Binary (${{ matrix.arch }})
     needs: pin
@@ -90,8 +100,10 @@ jobs:
         include:
           - runner: macos-15
             arch: arm64
+            target: aarch64-apple-darwin
           - runner: macos-15-intel
             arch: x86_64
+            target: x86_64-apple-darwin
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     env:
@@ -99,25 +111,48 @@ jobs:
       RUSTUP_TOOLCHAIN: stable
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.pin.outputs.commit
         with:
           repository: jdpanderson/cheesecloth
           ref: ${{ needs.pin.outputs.commit }}
           persist-credentials: false
       - name: Select stable Rust
+        if: needs.pin.outputs.commit
         run: rustup update stable --no-self-update
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        if: needs.pin.outputs.commit
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Build
-        run: cargo build --release --locked -p cheesecloth
+        if: needs.pin.outputs.commit
+        run: |
+          cargo build --release --locked -p cheesecloth
+          mkdir -p bin
+          cp target/release/cheesecloth bin/cheesecloth
+      - name: Download
+        if: needs.pin.outputs.release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE: ${{ needs.pin.outputs.release }}
+          TARGET: ${{ matrix.target }}
+          SHA256: ${{ fromJSON(needs.pin.outputs.sha256 || '{}')[matrix.target] }}
+        run: |
+          mkdir -p bin
+          gh release download "v$RELEASE" -R jdpanderson/cheesecloth \
+            -p "cheesecloth-$RELEASE-$TARGET" -O bin/cheesecloth
+          read -r hash _ < <(shasum -a 256 bin/cheesecloth)
+          if [[ "$hash" != "$SHA256" ]]; then
+            echo "::error::cheesecloth-$RELEASE-$TARGET has SHA-256 $hash, but cheesecloth.pin says $SHA256"
+            exit 1
+          fi
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: macos-binary-${{ matrix.arch }}
-          path: target/release/cheesecloth
+          path: bin/cheesecloth
           if-no-files-found: error
 
-  # Builds the installer from the binary that the binary job built. It never
-  # runs cargo.
+  # Builds the installer from the binary of the binary job. It never runs
+  # cargo.
   installer:
     name: Installer (${{ matrix.arch }})
     needs: [pin, binary]
@@ -136,11 +171,11 @@ jobs:
         with:
           persist-credentials: false
       # The README, LICENSE, notices and docs that the installer holds, from
-      # the commit that built the binary.
+      # the commit or tag of the binary.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: jdpanderson/cheesecloth
-          ref: ${{ needs.pin.outputs.commit }}
+          ref: ${{ needs.pin.outputs.ref }}
           path: cheesecloth
           sparse-checkout: docs
           persist-credentials: false

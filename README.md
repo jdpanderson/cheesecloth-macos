@@ -46,22 +46,22 @@ the cluster first with `cheesecloth leave` if the node should not come back.
 
 ## Building
 
-CI (`.github/workflows/ci.yml`) builds `cheesecloth` at the pinned commit in
-the `binary` job. The `installer` job then runs `build.sh`, which builds the
-installer, checks the binary's architecture, and checks the payload of the
-archive without installing it. The installer holds the binary unchanged. It
-is not stripped, so backtraces show function names.
+CI (`.github/workflows/ci.yml`) gets the pinned binary in the `binary` job
+(see [the pin file](#the-pin-file)). The `installer` job then runs
+`build.sh`, which builds the installer, checks the binary's architecture, and
+checks the payload of the archive without installing it. The installer holds
+the binary unchanged. It is not stripped, so backtraces show function names.
 
 To build one by hand on a Mac, with a cheesecloth checkout beside this one,
-at the commit that built the binary:
+at the commit or tag of the binary:
 
 ```sh
 bash build.sh ../cheesecloth/target/release/cheesecloth ../cheesecloth
 ```
 
-The binary must be for the Mac's own architecture. Set
-`MACOSX_DEPLOYMENT_TARGET=14.0` when you build it, as CI does, so that it
-runs on macOS 14.
+The binary must be for the Mac's own architecture. Release binaries are
+built for macOS 14. If you build one yourself, set
+`MACOSX_DEPLOYMENT_TARGET=14.0`, as CI does.
 
 ### The pin file
 
@@ -86,8 +86,15 @@ aarch64-apple-darwin = "<sha-256>"
 x86_64-apple-darwin = "<sha-256>"
 ```
 
-CI checks this form, but does not download release binaries yet, so it
-stops with an error. That comes with the first cheesecloth release that
-attaches binaries. Before a package release, the pin must name a release.
-For work that spans both repositories, change cheesecloth first and merge it,
-then pin that commit here.
+CI downloads `cheesecloth-<release>-<target>` from the release, and fails if
+its SHA-256 is not the one in the pin. It takes the README, LICENSE, notices
+and docs from the tag `v<release>`. Copy the SHA-256 values from the
+release's `SHA256SUMS` file:
+
+```sh
+gh release download v0.4.0 -R jdpanderson/cheesecloth -p SHA256SUMS -D target/
+```
+
+Before a package release, the pin must name a release. For work that spans
+both repositories, change cheesecloth first and merge it, then pin that
+commit here.
