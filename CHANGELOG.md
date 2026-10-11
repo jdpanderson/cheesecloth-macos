@@ -7,6 +7,12 @@ names the cheesecloth version it packages plus a package revision, such as
 
 ## [Unreleased]
 
+## [0.4.0-1] - 2026-10-11
+
+### Changed
+
+- The installer packages cheesecloth 0.4.0. Not signed or notarized.
+
 ## [0.4.0pre0-1] - 2026-10-11
 
 A test pre-release of the installer, for cheesecloth 0.4.0pre0. Not signed or

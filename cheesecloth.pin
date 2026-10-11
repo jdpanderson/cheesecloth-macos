@@ -1,4 +1,4 @@
-release = "0.4.0pre0"
+release = "0.4.0"
 [sha256]
 aarch64-apple-darwin = "0389f0cddc3568d96ff1ada1b72a46605d7aae78cd0f00633dfc8710c03b2e7d"
 x86_64-apple-darwin = "298cea14ecd1ab56ef10e31ee1d9d9c28c6cf9250f2a5f9240e8a7bfe39fdf1c"
