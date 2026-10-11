@@ -7,16 +7,22 @@ in `/usr/local/share/doc/cheesecloth`. It does not set up a service.
 
 ## Install
 
-Pick the installer for your Mac from the CI run's **Artifacts**:
+Pick the installer for your Mac from the
+[releases](https://github.com/jdpanderson/cheesecloth-macos/releases):
 
 - `cheesecloth-<version>-macos-arm64.pkg` for Apple Silicon;
 - `cheesecloth-<version>-macos-x86_64.pkg` for Intel.
 
-Install it from a terminal:
+The version is the cheesecloth release plus a package revision, such as
+`0.4.0-1`. Check that `shasum -a 256 <file>` prints the SHA-256 that the
+release's `SHA256SUMS` lists for it, then install it from a terminal:
 
 ```sh
-sudo installer -pkg cheesecloth-0.3.0-macos-arm64.pkg -target /
+sudo installer -pkg cheesecloth-0.4.0-1-macos-arm64.pkg -target /
 ```
+
+A CI run's **Artifacts** also hold the installers, named with the version of
+the binary only.
 
 Then start the daemon with `sudo cheesecloth daemon`.
 
@@ -37,8 +43,9 @@ the cluster first with `cheesecloth leave` if the node should not come back.
 
 ## Weak points
 
-- **Not signed or notarized.** Gatekeeper blocks the installer when it is
-  opened from Finder. `sudo installer` in a terminal installs it.
+- **Not signed or notarized**, including full releases. Gatekeeper blocks
+  the installer when it is opened from Finder. `sudo installer` in a
+  terminal installs it.
 - **No service.** The daemon runs only while `sudo cheesecloth daemon` runs.
   It does not start at boot.
 - **No uninstaller.** macOS has none for `.pkg` installers; see
@@ -98,3 +105,23 @@ gh release download v0.4.0 -R jdpanderson/cheesecloth -p SHA256SUMS -D target/
 Before a package release, the pin must name a release. For work that spans
 both repositories, change cheesecloth first and merge it, then pin that
 commit here.
+
+### Releasing
+
+A package release names the cheesecloth release it packages plus a package
+revision, such as `0.4.0-1` (the revision starts at 1 for each cheesecloth
+release). It is published on this repository's releases.
+
+1. Pin the cheesecloth release in `cheesecloth.pin`, and merge it to `main`.
+2. Install the arm64 or x86_64 installer from the last CI run of `main` on a
+   Mac, and check that `sudo cheesecloth daemon` runs.
+3. Add a heading for the package version to CHANGELOG.md, and merge it.
+4. Tag `main` and push the tag:
+   `git tag v0.4.0-1 && git push origin v0.4.0-1`.
+
+For the tag, CI checks that it is `v<pinned release>-<revision>`, runs all
+the checks, and the `release` job attaches
+`cheesecloth-<package version>-macos-<arch>.pkg` for each architecture and a
+`SHA256SUMS` file. A pinned release with a suffix, such as `0.4.0pre0`, makes
+a pre-release. The installers are not signed or notarized; see
+[Weak points](#weak-points).

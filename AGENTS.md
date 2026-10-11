@@ -48,3 +48,6 @@ branch and open a pull request to run them.
   commit, or downloads it from the pinned release and checks its SHA-256.
 - **Installer:** builds the installer for arm64 and x86_64 with `build.sh`,
   which checks the binary's architecture and the archive's payload.
+- **Release:** for a tag `v<release>-<revision>`, the pin job checks that it
+  names the pinned release, and the `release` job publishes the installers.
+  See [README.md](README.md#releasing).
