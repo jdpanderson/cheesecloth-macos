@@ -1,0 +1,19 @@
+# Changelog
+
+All notable changes to the macOS installer are listed here. The format
+follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). A release
+names the cheesecloth version it packages plus a package revision, such as
+`0.4.0-2`.
+
+## [Unreleased]
+
+### Changed
+
+- The macOS installer moved here from the cheesecloth repository. `build.sh`
+  now takes a built binary and a cheesecloth checkout, and no longer needs
+  Cargo or Python.
+
+### Added
+
+- `cheesecloth.json`, the cheesecloth commit that the installer packages. CI
+  builds the binary from source at that commit.
