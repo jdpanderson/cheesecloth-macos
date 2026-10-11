@@ -44,7 +44,7 @@ All checks run in CI (`.github/workflows/ci.yml`), on macOS and Linux
 runners. They need macOS or tools that are not installed locally, so push a
 branch and open a pull request to run them.
 - **Lint:** shellcheck on `build.sh`, and actionlint on the workflow.
-- **Binary:** builds `cheesecloth` from the pinned commit, for arm64 and
-  x86_64.
+- **Binary:** for arm64 and x86_64, builds `cheesecloth` from the pinned
+  commit, or downloads it from the pinned release and checks its SHA-256.
 - **Installer:** builds the installer for arm64 and x86_64 with `build.sh`,
   which checks the binary's architecture and the archive's payload.
