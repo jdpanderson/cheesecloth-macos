@@ -49,7 +49,8 @@ the cluster first with `cheesecloth leave` if the node should not come back.
 CI (`.github/workflows/ci.yml`) builds `cheesecloth` at the pinned commit in
 the `binary` job. The `installer` job then runs `build.sh`, which builds the
 installer, checks the binary's architecture, and checks the payload of the
-archive without installing it.
+archive without installing it. The installer holds the binary unchanged. It
+is not stripped, so backtraces show function names.
 
 To build one by hand on a Mac, with a cheesecloth checkout beside this one,
 at the commit that built the binary:

@@ -32,7 +32,8 @@ install -m644 "$source/README.md" "$source/LICENSE" "$source/THIRD-PARTY-NOTICES
   "$stage/root/usr/local/share/doc/cheesecloth/"
 install -m644 "$source"/docs/*.md "$stage/root/usr/local/share/doc/cheesecloth/docs/"
 xattr -cr "$stage/root"
-strip -x "$stage/root/usr/local/bin/cheesecloth"
+# The binary is not stripped, so backtraces show function names, and it
+# stays the same as the binary that was built or released.
 lipo "$stage/root/usr/local/bin/cheesecloth" -verify_arch "$arch"
 "$stage/root/usr/local/bin/cheesecloth" --version
 
@@ -44,5 +45,5 @@ pkgbuild --root "$stage/root" --identifier ca.janderson.cheesecloth \
 # Inspect the actual archive without installing it or starting a daemon.
 pkgutil --expand-full "$package" "$stage/expanded"
 payload="$stage/expanded/Payload/usr/local/bin/cheesecloth"
-cmp "$stage/root/usr/local/bin/cheesecloth" "$payload"
+cmp "$binary" "$payload"
 "$payload" --version

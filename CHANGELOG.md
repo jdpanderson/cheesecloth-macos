@@ -12,6 +12,9 @@ names the cheesecloth version it packages plus a package revision, such as
 - The macOS installer moved here from the cheesecloth repository. `build.sh`
   now takes a built binary and a cheesecloth checkout, and no longer needs
   Cargo or Python.
+- The installer no longer strips the binary. Backtraces show function names,
+  and the installed binary is the same as the one that was built or
+  released.
 
 ### Added
 
