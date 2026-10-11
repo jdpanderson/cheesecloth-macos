@@ -43,21 +43,41 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # Until cheesecloth releases attach binaries, the pin names a commit,
-      # and CI builds the binary from source. See README.md.
-      - name: Read cheesecloth.json
+      # The pin names a commit or a release; see README.md. CI builds the
+      # binary from source at a commit. It does not download release
+      # binaries yet.
+      - name: Read cheesecloth.pin
         id: pin
         run: |
-          if ! jq -e 'keys == ["commit"]' cheesecloth.json > /dev/null; then
-            echo "::error::cheesecloth.json must hold only \"commit\""
-            exit 1
-          fi
-          commit=$(jq -r .commit cheesecloth.json)
-          if [[ ! "$commit" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "::error::the commit in cheesecloth.json is not a full SHA-1: $commit"
-            exit 1
-          fi
-          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          pin=$(python3 -c 'import json, sys, tomllib; print(json.dumps(tomllib.load(sys.stdin.buffer)))' < cheesecloth.pin)
+          case $(jq -c 'keys' <<< "$pin") in
+            '["commit"]')
+              commit=$(jq -r .commit <<< "$pin")
+              if [[ ! "$commit" =~ ^[0-9a-f]{40}$ ]]; then
+                echo "::error::the commit in cheesecloth.pin is not a full SHA-1: $commit"
+                exit 1
+              fi
+              echo "commit=$commit" >> "$GITHUB_OUTPUT"
+              ;;
+            '["release","sha256"]')
+              release=$(jq -r .release <<< "$pin")
+              if [[ ! "$release" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                echo "::error::the release in cheesecloth.pin is not a version: $release"
+                exit 1
+              fi
+              if ! jq -e '.sha256 | keys == ["aarch64-apple-darwin", "x86_64-apple-darwin"]
+                  and all(.[]; type == "string" and test("^[0-9a-f]{64}$"))' <<< "$pin" > /dev/null; then
+                echo "::error::[sha256] in cheesecloth.pin must hold a SHA-256 for aarch64-apple-darwin and x86_64-apple-darwin"
+                exit 1
+              fi
+              echo "::error::CI does not download release binaries yet; pin a commit"
+              exit 1
+              ;;
+            *)
+              echo "::error::cheesecloth.pin must hold either \"commit\", or \"release\" and [sha256]"
+              exit 1
+              ;;
+          esac
 
   # Builds cheesecloth at the pinned commit. The tests run in cheesecloth's
   # own CI.

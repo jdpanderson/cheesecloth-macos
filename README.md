@@ -64,23 +64,29 @@ runs on macOS 14.
 
 ### The pin file
 
-`cheesecloth.json` names the cheesecloth commit that the installer packages:
+`cheesecloth.pin` names what the installer packages. Its format is set in
+cheesecloth's
+[docs/REPOSITORIES.md](https://github.com/jdpanderson/cheesecloth/blob/main/docs/REPOSITORIES.md#contracts).
+It is TOML, in one of two forms. A commit:
 
-```json
-{ "commit": "<full commit SHA-1>" }
+```toml
+commit = "<40-character commit id>"
 ```
 
 CI checks out cheesecloth at that commit, builds the binary from source, and
 takes the README, LICENSE, notices and docs from the same checkout.
 
-When cheesecloth releases attach a binary for each target, the pin will name
-a release and the SHA-256 of each binary in place of the commit, and CI will
-download and check them:
+Or a release, with the SHA-256 of each macOS binary it attaches:
 
-```json
-{ "release": "v0.4.0", "sha256": { "arm64": "<sha256>", "x86_64": "<sha256>" } }
+```toml
+release = "0.4.0"
+[sha256]
+aarch64-apple-darwin = "<sha-256>"
+x86_64-apple-darwin = "<sha-256>"
 ```
 
-CI does not read this form yet. Before a package release, the pin must name a
-release. For work that spans both repositories, change cheesecloth first and
-merge it, then pin that commit here.
+CI checks this form, but does not download release binaries yet, so it
+stops with an error. That comes with the first cheesecloth release that
+attaches binaries. Before a package release, the pin must name a release.
+For work that spans both repositories, change cheesecloth first and merge it,
+then pin that commit here.
