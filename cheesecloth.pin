@@ -1,1 +1,7 @@
-commit = "40335318ff802748b1a5852c63ad432000c1ada0"
+# What the installer packages. The format is in "Contracts" in
+# docs/REPOSITORIES.md of cheesecloth.
+release = "0.5.0-beta.0"
+
+[sha256]
+ aarch64-apple-darwin = "a1692dc2624f37ede485cce320d3e4f7e88c2d4950ad3fd9d7c45658246c8008"
+ x86_64-apple-darwin = "66e5b6e25c74bdf7434ab1ea823f55f1838df82844b113f774d485c9bb11d0b2"
