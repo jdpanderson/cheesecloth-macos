@@ -167,27 +167,42 @@ jobs:
           path: bin/cheesecloth
           if-no-files-found: error
 
-  # Builds the installer from the binary of the binary job. It never runs
-  # cargo.
-  installer:
-    name: Installer (${{ matrix.arch }})
-    needs: [pin, binary]
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: macos-15
-            arch: arm64
-          - runner: macos-15-intel
-            arch: x86_64
-    runs-on: ${{ matrix.runner }}
+  # The app's unit tests, with the local API examples from the commit or tag
+  # of the binary.
+  test:
+    name: Swift tests
+    needs: pin
+    runs-on: macos-26
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # The README, LICENSE, notices and docs that the installer holds, from
-      # the commit or tag of the binary.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: jdpanderson/cheesecloth
+          ref: ${{ needs.pin.outputs.ref }}
+          path: cheesecloth
+          sparse-checkout: docs
+          persist-credentials: false
+      - name: Test
+        env:
+          CHEESECLOTH_API_DOC: ${{ github.workspace }}/cheesecloth/docs/LOCAL-API.md
+        run: swift test --package-path app
+
+  # Builds the universal app from the binaries of the binary job. It never
+  # runs cargo.
+  app:
+    name: App
+    needs: [pin, binary]
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The README, LICENSE, notices and docs that the app holds, from the
+      # commit or tag of the binary.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: jdpanderson/cheesecloth
@@ -197,27 +212,28 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: macos-binary-${{ matrix.arch }}
           path: target/bin
+          pattern: macos-binary-*
       # Artifacts do not keep file modes.
-      - name: Build installer
+      - name: Build app
         run: |
-          chmod +x target/bin/cheesecloth
-          bash build.sh target/bin/cheesecloth cheesecloth
+          chmod +x target/bin/*/cheesecloth
+          bash build.sh cheesecloth \
+            target/bin/macos-binary-arm64/cheesecloth target/bin/macos-binary-x86_64/cheesecloth
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: cheesecloth-macos-${{ matrix.arch }}
-          path: dist/*.pkg
+          name: cheesecloth-macos-app
+          path: dist/*.dmg
           if-no-files-found: error
           compression-level: 0
 
   # Publishes a package release for a tag v<release>-<revision>, after every
-  # check passed. The installers are not signed or notarized; see Weak points
+  # check passed. The app is signed ad hoc and not notarized; see Weak points
   # in README.md.
   release:
     name: Publish release
     if: github.ref_type == 'tag'
-    needs: [lint, pin, installer]
+    needs: [lint, pin, test, app]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -225,9 +241,9 @@ jobs:
     steps:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
+          name: cheesecloth-macos-app
           path: dist
-          pattern: cheesecloth-macos-*
-      - name: Attach the installers to the release
+      - name: Attach the app to the release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -241,17 +257,15 @@ jobs:
           if [[ ! "$RELEASE" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             flags+=(--prerelease)
           fi
+          dmg=(dist/*.dmg)
+          if [[ ${#dmg[@]} -ne 1 || ! -f "${dmg[0]}" ]]; then
+            echo "::error::expected one disk image, found: ${dmg[*]}"
+            exit 1
+          fi
           mkdir release
-          for arch in arm64 x86_64; do
-            pkg=(dist/"cheesecloth-macos-$arch"/*.pkg)
-            if [[ ${#pkg[@]} -ne 1 || ! -f "${pkg[0]}" ]]; then
-              echo "::error::expected one installer for $arch, found: ${pkg[*]}"
-              exit 1
-            fi
-            cp "${pkg[0]}" "release/cheesecloth-$PACKAGE-macos-$arch.pkg"
-          done
+          cp "${dmg[0]}" "release/Cheesecloth-$PACKAGE-macos.dmg"
           cd release
           sha256sum -- * > SHA256SUMS
           cat SHA256SUMS
           gh release create "$TAG" --verify-tag --title "$PACKAGE" --generate-notes "${flags[@]}" \
-            --notes "macOS installers (not signed or notarized) for cheesecloth $RELEASE." -- *
+            --notes "The macOS app (universal, signed ad hoc, not notarized) for cheesecloth $RELEASE." -- *

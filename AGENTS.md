@@ -31,11 +31,11 @@ The agent works without permission prompts where it can:
 - Give these rules to every sub-agent.
 
 ## This repository
-- It holds the macOS installer for
-  [cheesecloth](https://github.com/jdpanderson/cheesecloth). The app and its
-  docs live there; see its `docs/REPOSITORIES.md`.
-- `cheesecloth.pin` pins the cheesecloth commit or release that the
-  installer packages. See [README.md](README.md#the-pin-file).
+- It holds the macOS menu-bar app (`app/`, a Swift package) for
+  [cheesecloth](https://github.com/jdpanderson/cheesecloth). The daemon and
+  its docs live there; see its `docs/REPOSITORIES.md`.
+- `cheesecloth.pin` pins the cheesecloth commit or release that the app
+  carries. See [README.md](README.md#the-pin-file).
 - For work that also changes cheesecloth, change and merge it there first,
   then move the pin here.
 
@@ -46,8 +46,11 @@ branch and open a pull request to run them.
 - **Lint:** shellcheck on `build.sh`, and actionlint on the workflow.
 - **Binary:** for arm64 and x86_64, builds `cheesecloth` from the pinned
   commit, or downloads it from the pinned release and checks its SHA-256.
-- **Installer:** builds the installer for arm64 and x86_64 with `build.sh`,
-  which checks the binary's architecture and the archive's payload.
+- **Swift tests:** `swift test --package-path app`, with the local API
+  examples from the pinned commit or tag. These also run locally, with a
+  cheesecloth checkout beside this one.
+- **App:** builds the universal app with `build.sh`, which checks the app in
+  the disk image: its signature, architectures and binary version.
 - **Release:** for a tag `v<release>-<revision>`, the pin job checks that it
-  names the pinned release, and the `release` job publishes the installers.
+  names the pinned release, and the `release` job publishes the app.
   See [README.md](README.md#releasing).
