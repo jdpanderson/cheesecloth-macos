@@ -7,6 +7,10 @@ such as `0.4.0-2`.
 
 ## [Unreleased]
 
+## [0.5.0-beta.0-1] - 2026-10-13
+
+The first test release of the menu-bar app, with cheesecloth 0.5.0-beta.0.
+
 ### Added
 
 - `Cheesecloth.app`, a menu-bar app for macOS 14 or later, in place of the
