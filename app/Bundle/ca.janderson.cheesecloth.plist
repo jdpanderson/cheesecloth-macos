@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- The LaunchDaemon that the app registers with SMAppService. It runs the
+     bundled binary with the default options. -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>ca.janderson.cheesecloth</string>
+	<key>BundleProgram</key>
+	<string>Contents/Helpers/cheesecloth</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>cheesecloth</string>
+		<string>daemon</string>
+	</array>
+	<!-- Login Items in System Settings shows the daemon under the app. -->
+	<key>AssociatedBundleIdentifiers</key>
+	<array>
+		<string>ca.janderson.cheesecloth.app</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>StandardOutPath</key>
+	<string>/Library/Logs/cheesecloth.log</string>
+	<key>StandardErrorPath</key>
+	<string>/Library/Logs/cheesecloth.log</string>
+</dict>
+</plist>
