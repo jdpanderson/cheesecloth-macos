@@ -73,7 +73,7 @@ func roundTrip<T: Codable>(_ type: T.Type, _ json: String) throws {
         case "change": try roundTrip(Change.self, json)
         case "pending": try roundTrip([Proposal].self, json)
         case "config": try roundTrip(Config.self, json)
-        case "request", "response": break
+        case "request", "response", "cli_error": break
         default: Issue.record("unknown example kind \(kind)")
         }
     }
@@ -103,7 +103,19 @@ func roundTrip<T: Codable>(_ type: T.Type, _ json: String) throws {
 }
 
 @Test func errorAnswersBecomeDaemonErrors() throws {
-    #expect(throws: APIError.daemon("no member matches \"zz\"")) {
-        let _: Status = try Session.decode(Data(#"{"err":"no member matches \"zz\""}"#.utf8))
+    let answer = try #require(try examples().first { $0.kind == "response" && $0.json.contains("\"err\"") }?.json)
+    #expect(throws: APIError.daemon(code: "no_such_member", message: "no member matches \"zz\"")) {
+        let _: Status = try Session.decode(Data(answer.utf8))
+    }
+    #expect(throws: APIError.daemon(code: "new_code", message: "more detail")) {
+        let _: Status = try Session.decode(Data(#"{"err":{"code":"new_code","message":"more detail"}}"#.utf8))
+    }
+    #expect(throws: APIError.legacyVersion) {
+        let _: Status = try Session.decode(Data(#"{"err":"older daemon"}"#.utf8))
+    }
+    #expect {
+        let _: Status = try Session.decode(Data(#"{"err":{"message":"missing code"}}"#.utf8))
+    } throws: { error in
+        if case .protocolError = error as? APIError { true } else { false }
     }
 }

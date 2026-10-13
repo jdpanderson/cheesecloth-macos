@@ -133,7 +133,10 @@ public enum MenuState: Sendable, Equatable {
 
 extension APIError {
     var isVersion: Bool {
-        if case .version = self { true } else { false }
+        switch self {
+        case .version, .legacyVersion: true
+        default: false
+        }
     }
 }
 
@@ -225,15 +228,14 @@ extension Peer {
         return Badge("no", .off)
     }
 
-    /// The colour of `pathState`. The daemon's text is for people; only
-    /// "up" has a fixed meaning, so the others are grouped by their words.
+    /// The colour of the stable path state code.
     public var stateLevel: Level? {
         if thisNode { return nil }
         switch pathState {
         case "up": return .good
-        case "stale", "no handshake yet", "waiting to punch", "offer sent", "punching":
+        case "stale", "no_handshake", "waiting_to_punch", "offer_sent", "punching", "waiting_for_removal":
             return .attention
-        case let s where s.hasPrefix("no path"): return .broken
+        case "no_path": return .broken
         default: return .off
         }
     }

@@ -7,24 +7,26 @@ import Foundation
 public enum APIError: Error, Equatable, CustomStringConvertible {
     /// No daemon listens on the socket, or the socket is missing.
     case unreachable(String)
-    /// The daemon answered `{"err": ...}`: a sentence for people. A refused
-    /// connection gets this too, to `hello`.
-    case daemon(String)
+    /// The daemon answered with a code and a message. Unknown codes are kept.
+    case daemon(code: String, message: String)
     /// The daemon refused the connection: this user may not use it. The text
     /// says who may.
     case refused(String)
     /// The daemon serves another API version.
     case version(daemon: String, api: Int)
+    /// A daemon from before error codes answered `hello` with a string error.
+    case legacyVersion
     /// The connection broke, or the answer was not what LOCAL-API.md says.
     case protocolError(String)
 
     public var description: String {
         switch self {
         case let .unreachable(why): "Can't reach the cheesecloth daemon: \(why)"
-        case let .daemon(text): text
+        case let .daemon(_, message): message
         case let .refused(text): text
         case let .version(daemon, api):
             "The daemon (cheesecloth \(daemon)) speaks local API version \(api); this app speaks \(apiVersion)."
+        case .legacyVersion: "The daemon is older than this app. Reinstall cheesecloth."
         case let .protocolError(why): "Unexpected answer from the daemon: \(why)"
         }
     }
@@ -51,14 +53,7 @@ public struct Client: Sendable {
         return try await Task.detached {
             let session = try Session(socket: socket)
             defer { session.close() }
-            let hello: Hello
-            do {
-                hello = try session.send(.hello)
-            } catch let APIError.daemon(text) {
-                // A refused connection gets one error line, to its first
-                // request.
-                throw APIError.refused(text)
-            }
+            let hello: Hello = try session.send(.hello)
             guard hello.api == apiVersion else {
                 throw APIError.version(daemon: hello.daemon, api: hello.api)
             }
@@ -121,7 +116,7 @@ public final class Session: @unchecked Sendable {
         return try Session.decode(readLine())
     }
 
-    /// Decodes one answer line: `{"ok": value}` or `{"err": text}`.
+    /// Decodes one answer line: `{"ok": value}` or a coded error.
     static func decode<T: Decodable>(_ line: Data) throws -> T {
         let answer: Answer<T>
         do {
@@ -131,7 +126,12 @@ public final class Session: @unchecked Sendable {
         }
         switch answer {
         case let .ok(value): return value
-        case let .err(text): throw APIError.daemon(text)
+        case let .err(error):
+            if error.code == "permission_denied" {
+                throw APIError.refused(error.message)
+            }
+            throw APIError.daemon(code: error.code, message: error.message)
+        case .legacyError: throw APIError.legacyVersion
         }
     }
 
@@ -177,17 +177,27 @@ public final class Session: @unchecked Sendable {
     }
 }
 
-/// `{"ok": value}` or `{"err": "text"}`.
+struct ErrorDocument: Decodable {
+    let code: String
+    let message: String
+}
+
+/// `{"ok": value}` or `{"err": {"code": ..., "message": ...}}`.
 enum Answer<T: Decodable>: Decodable {
     case ok(T)
-    case err(String)
+    case err(ErrorDocument)
+    case legacyError
 
     private enum Keys: String, CodingKey { case ok, err }
 
     init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: Keys.self)
         if c.contains(.err) {
-            self = try .err(c.decode(String.self, forKey: .err))
+            if (try? c.decode(String.self, forKey: .err)) != nil {
+                self = .legacyError
+            } else {
+                self = try .err(c.decode(ErrorDocument.self, forKey: .err))
+            }
         } else if c.contains(.ok) {
             self = try .ok(c.decode(T.self, forKey: .ok))
         } else {
