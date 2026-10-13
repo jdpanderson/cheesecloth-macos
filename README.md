@@ -9,7 +9,8 @@ while the app runs. One universal app runs on Apple Silicon and Intel.
 
 Download `Cheesecloth-<version>-macos.dmg` from the
 [releases](https://github.com/jdpanderson/cheesecloth-macos/releases). The
-version is the cheesecloth release plus a package revision, such as `0.5.0-1`.
+version is the cheesecloth release plus a package revision, such as `0.5.0-1`,
+or `0.5.0-beta.1-1` for a pre-release.
 Check that `shasum -a 256 <file>` prints the SHA-256 that the release's
 `SHA256SUMS` lists for it.
 
@@ -174,5 +175,7 @@ release). It is published on this repository's releases.
 For the tag, CI checks that it is `v<pinned release>-<revision>`, runs all
 the checks, and the `release` job attaches
 `Cheesecloth-<package version>-macos.dmg` and a `SHA256SUMS` file. A pinned
-release with a suffix, such as `0.5.0pre0`, makes a pre-release. The app is
+pre-release, such as `0.5.0-beta.1`, makes a pre-release here too. Its app
+shows the plain version (`0.5.0`) in Finder, since macOS allows only numbers
+there; the disk image's name has the full version. The app is
 signed ad hoc and not notarized; see [Weak points](#weak-points).

@@ -51,7 +51,7 @@ struct PeersPage: View {
             Chip(text: peer.path)
             HStack(spacing: 5) {
                 if let level = peer.stateLevel { Dot(level: level) }
-                Text(peer.thisNode ? "-" : peer.pathState).lineLimit(1)
+                Text(peer.thisNode ? "-" : peer.pathDetail).lineLimit(1)
             }
             Text(peer.wgEndpoint ?? "-").monospacedDigit()
             Text(peer.handshakeText)

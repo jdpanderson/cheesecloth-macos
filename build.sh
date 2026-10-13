@@ -39,13 +39,16 @@ if [[ ${#archs[@]} -ne $# ]]; then
   exit 1
 fi
 
-# "cheesecloth 0.4.0"
+# "cheesecloth 0.5.0", or a pre-release such as "cheesecloth 0.5.0-beta.1".
 version=$("$stage/cheesecloth" --version)
 version=${version#cheesecloth }
-if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+if [[ ! "$version" =~ ^([0-9]+\.[0-9]+\.[0-9]+)(-[0-9A-Za-z.-]+)?$ ]]; then
   echo "unexpected version '$version'" >&2
   exit 1
 fi
+# The app's version in Info.plist allows only numbers, so a pre-release has
+# the version it comes before. The disk image's name has the full version.
+bundle_version=${BASH_REMATCH[1]}
 
 swift_args=(--package-path "$here/app" -c release)
 for arch in "${archs[@]}"; do
@@ -58,7 +61,7 @@ app="$stage/Cheesecloth.app"
 contents="$app/Contents"
 install -d "$contents/MacOS" "$contents/Helpers" "$contents/Resources/docs" \
   "$contents/Library/LaunchDaemons"
-sed "s/VERSION/$version/g" "$here/app/Bundle/Info.plist" >"$contents/Info.plist"
+sed "s/VERSION/$bundle_version/g" "$here/app/Bundle/Info.plist" >"$contents/Info.plist"
 install -m755 "$products/Cheesecloth" "$contents/MacOS/Cheesecloth"
 install -m755 "$stage/cheesecloth" "$contents/Helpers/cheesecloth"
 install -m644 "$here/app/Bundle/ca.janderson.cheesecloth.plist" "$contents/Library/LaunchDaemons/"

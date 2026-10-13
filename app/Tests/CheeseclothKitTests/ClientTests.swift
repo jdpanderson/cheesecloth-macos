@@ -86,8 +86,22 @@ let hello1 = #"{"ok":{"api":1,"daemon":"0.5.0"}}"#
 
 @Test func aRefusedConnectionSaysWhoMay() async throws {
     let text = "only root and members of the group admin may use the cheesecloth daemon"
-    let daemon = try FakeDaemon(answers: [#"{"err":"\#(text)"}"#])
+    let daemon = try FakeDaemon(answers: [#"{"err":{"code":"permission_denied","message":"\#(text)"}}"#])
     await #expect(throws: APIError.refused(text)) {
+        let _: Config = try await Client(socket: daemon.path).call(.configGet)
+    }
+}
+
+@Test func anotherHelloErrorIsNotAnAccessRefusal() async throws {
+    let daemon = try FakeDaemon(answers: [#"{"err":{"code":"access_check_failed","message":"group lookup failed"}}"#])
+    await #expect(throws: APIError.daemon(code: "access_check_failed", message: "group lookup failed")) {
+        let _: Config = try await Client(socket: daemon.path).call(.configGet)
+    }
+}
+
+@Test func aLegacyHelloErrorNeedsReinstall() async throws {
+    let daemon = try FakeDaemon(answers: [#"{"err":"older daemon"}"#])
+    await #expect(throws: APIError.legacyVersion) {
         let _: Config = try await Client(socket: daemon.path).call(.configGet)
     }
 }

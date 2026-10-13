@@ -21,6 +21,9 @@ such as `0.4.0-2`.
 
 ### Changed
 
+- `build.sh` accepts a cheesecloth pre-release version, such as
+  `0.5.0-beta.1`. The disk image's name has the full version; the app's
+  version in `Info.plist` is the plain `0.5.0`, as macOS allows only numbers.
 - `build.sh` builds the app from a cheesecloth checkout and one or two
   binaries, and puts it on a disk image with a link to `/Applications`.
 - The pin names a cheesecloth commit with the local API that the app needs

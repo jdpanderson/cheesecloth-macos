@@ -51,6 +51,9 @@ func status(_ edit: (inout Status) -> Void = { _ in }) throws -> Status {
         registration: .enabled, status: .failure(.version(daemon: "9.0.0", api: 2)),
         sinceRegistered: nil)
     #expect(version.title == "Needs reinstall")
+    let legacy = MenuState(
+        registration: .enabled, status: .failure(.legacyVersion), sinceRegistered: nil)
+    #expect(legacy.title == "Needs reinstall")
 }
 
 @Test func theStatusBadgesFollowTheBrief() throws {
@@ -79,15 +82,23 @@ func status(_ edit: (inout Status) -> Void = { _ in }) throws -> Status {
     var peer = try #require(try decoder.decode([Peer].self, from: Data(json.utf8)).first)
     #expect(peer.control == Badge("yes", .good))
     #expect(peer.stateLevel == .good)
+    #expect(peer.pathDetail == "up")
+    #expect(peer.retryInSecs == nil)
     #expect(peer.handshakeText == "16s ago")
     peer.connected = false
     #expect(peer.control == Badge("relay", .off))
     peer.present = false
     #expect(peer.control == Badge("no", .off))
     #expect(peer.presence == .off)
-    peer.pathState = "no path; retry in 20s"
+    peer.pathState = "no_path"
+    peer.pathDetail = "no path; retry in 20s"
+    peer.retryInSecs = 20
     #expect(peer.stateLevel == .broken)
+    #expect(peer.pathDetail == "no path; retry in 20s")
+    #expect(peer.retryInSecs == 20)
     peer.pathState = "punching"
+    #expect(peer.stateLevel == .attention)
+    peer.pathState = "no_handshake"
     #expect(peer.stateLevel == .attention)
     peer.handshakeAgeSecs = 150
     #expect(peer.handshakeText == "2m ago")

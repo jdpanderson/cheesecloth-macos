@@ -115,6 +115,8 @@ public struct Peer: Codable, Sendable, Equatable, Identifiable {
     public var wgKey: String
     public var path: String
     public var pathState: String
+    public var pathDetail: String
+    public var retryInSecs: Int?
     public var wgEndpoint: String?
     public var handshakeAgeSecs: Int?
 
