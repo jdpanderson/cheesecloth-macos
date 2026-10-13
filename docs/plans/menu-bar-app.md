@@ -36,6 +36,11 @@ The app is decided either way; this test only says whether it costs money.
 - If it does not: join the Apple Developer Program, sign with a Developer ID
   and notarize (see [Signing](#signing)).
 
+Result: it works. The ad hoc signed app, opened from `/Applications` on
+macOS 26, registered the daemon after approval in Login Items, and Quit
+stopped it. macOS 14 is not tested yet. The first releases are signed ad
+hoc.
+
 ## Bundle layout
 
 ```
@@ -44,7 +49,7 @@ Cheesecloth.app/Contents/
   MacOS/Cheesecloth          the Swift app
   Helpers/cheesecloth        the pinned binary, unchanged
   Library/LaunchDaemons/ca.janderson.cheesecloth.plist
-  Resources/                 icons, README, LICENSE, notices, docs
+  Resources/                 AppIcon.icns, README, LICENSE, notices, docs
   Resources/Cheesecloth_Cheesecloth.bundle
                              the Swift package's resources (the menu-bar icon)
 ```
@@ -146,31 +151,29 @@ belongs in the settings, which come after the first version.
 
 ## Build and CI
 
-`app/bundle.sh <binary> <out dir>` already builds an ad hoc signed
-`Cheesecloth.app` for this Mac's architecture, from a built binary. The
-plists are in `app/Bundle/`.
+`build.sh <source> <binary>...`:
+1. joins the binaries with `lipo` (CI passes the two pinned binaries, after
+   checking a release binary against the pin's SHA-256);
+2. `swift build -c release` with an `--arch` for each architecture of the
+   binary;
+3. assembles the bundle; the plists are in `app/Bundle/`;
+4. `codesign -s -` (ad hoc) with the hardened runtime, or later a Developer
+   ID signature (see [Signing](#signing));
+5. a disk image (`hdiutil create`) with the app and a link to
+   `/Applications`, so the user drags the app there; then it checks the app
+   in the disk image: `codesign --verify`, the architectures, and
+   `Helpers/cheesecloth --version`.
 
-`build.sh` changes from making a `.pkg` to:
-1. `swift build -c release --arch arm64 --arch x86_64` for the app;
-2. assembling the bundle with the pinned binary for each architecture (a
-   universal binary made with `lipo` from the two pinned binaries, checked
-   against the pin's SHA-256 first);
-3. `codesign -s -` (ad-hoc), or a Developer ID signature (see
-   [Signing](#signing));
-4. a zip of the app (`ditto -c -k --keepParent`), and its SHA-256.
-
-One universal app, not one per architecture. CI checks the bundle layout,
-the plist, `codesign --verify`, and that `Helpers/cheesecloth --version`
-names the pinned release. Swift unit tests cover `APIClient` decoding against
-the examples in `LOCAL-API.md`, fetched at the pinned commit or tag.
+One universal app, not one per architecture. CI also runs the Swift unit
+tests, which check the API types against the examples in `LOCAL-API.md` at
+the pinned commit or tag. A release attaches the disk image and its SHA-256.
 
 A CI test with a real daemon would need root and approval in System
-Settings, so it is a manual release step, as `sudo cheesecloth daemon` is
-today.
+Settings, so it is a manual release step.
 
 ## Signing
 
-Needed if step 0 fails. It is worth doing even if step 0 passes: a signed and
+Not needed: step 0 passed. It is still worth doing later: a signed and
 notarized app opens from Finder without a Gatekeeper block, and the
 "not signed" weak point goes away.
 
@@ -180,7 +183,7 @@ notarized app opens from Finder without a Gatekeeper block, and the
   (`codesign --options runtime`). The binary stays as released, apart from
   the signature that `codesign` adds. CI checks its SHA-256 before signing,
   and `--version` after.
-- Notarize the zip with `notarytool`, then staple the app.
+- Sign the disk image, notarize it with `notarytool`, then staple it.
 - The certificate and a notary API key are secrets of this repository only,
   used by the release job. That matches the split in cheesecloth's
   `docs/REPOSITORIES.md`: package signing and its secrets live in the OS
@@ -188,13 +191,14 @@ notarized app opens from Finder without a Gatekeeper block, and the
 
 ## Steps
 
-1. Step 0, the signing test. Report what works.
-2. cheesecloth: the local API plan, merged. Pin its commit here.
+1. Step 0, the signing test. Done: ad hoc works.
+2. cheesecloth: the local API plan. The pin names its branch's commit until
+   it is merged; then pin the merged commit, and later its release.
 3. The Swift package: `APIClient`, `Model`, the menu, against a daemon run by
-   hand with `sudo cheesecloth daemon`.
-4. `DaemonService`, the plist and the bundle.
-5. `build.sh`, CI, README (install, uninstall, weak points), CHANGELOG.
-6. Remove the `.pkg` build.
+   hand with `sudo cheesecloth daemon`. Done.
+4. `DaemonService`, the plist and the bundle. Done.
+5. `build.sh`, CI, README (install, uninstall, weak points), CHANGELOG. Done.
+6. Remove the `.pkg` build. Done.
 
 ## Open questions
 

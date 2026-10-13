@@ -1,11 +1,37 @@
 # Changelog
 
-All notable changes to the macOS installer are listed here. The format
-follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). A release
-names the cheesecloth version it packages plus a package revision, such as
-`0.4.0-2`.
+All notable changes to the macOS app and installer are listed here. The
+format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). A
+release names the cheesecloth version it packages plus a package revision,
+such as `0.4.0-2`.
 
 ## [Unreleased]
+
+### Added
+
+- `Cheesecloth.app`, a menu-bar app for macOS 14 or later, in place of the
+  `.pkg`. Its menu shows the node's state and opens the Status and Peers
+  windows, and creates or joins a network. Peers can invite, approve and
+  remove nodes. Users in `admin` can use it without a password.
+- The app carries the `cheesecloth` binary and runs it as a launchd daemon
+  (`SMAppService`) while the app runs. Quit stops the daemon. The app starts
+  at login.
+- One universal app for Apple Silicon and Intel, signed ad hoc and not
+  notarized, on a disk image: `Cheesecloth-<version>-macos.dmg`.
+
+### Changed
+
+- `build.sh` builds the app from a cheesecloth checkout and one or two
+  binaries, and puts it on a disk image with a link to `/Applications`.
+- The pin names a cheesecloth commit with the local API that the app needs
+  (`hello` and access for the `admin` group).
+
+### Removed
+
+- The `.pkg` installers. To remove an installed one:
+  `sudo rm /usr/local/bin/cheesecloth`,
+  `sudo rm -r /usr/local/share/doc/cheesecloth` and
+  `sudo pkgutil --forget ca.janderson.cheesecloth`.
 
 ## [0.4.0-1] - 2026-10-11
 
