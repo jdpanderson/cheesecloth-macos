@@ -64,9 +64,8 @@ final class AppModel {
         do {
             let (s, p) = try await client.session { session -> (Status, [Proposal]?) in
                 let status: Status = try session.send(.status)
-                // Approvals exist only for members; ask only then.
-                let pending: [Proposal]? =
-                    status.phase == .member ? try session.send(.pending) : nil
+                // Only an admin may approve or reject; ask only then.
+                let pending: [Proposal]? = status.isAdmin ? try session.send(.pending) : nil
                 return (status, pending)
             }
             status = .success(s)
@@ -101,10 +100,10 @@ final class AppModel {
         }
     }
 
-    func createInvite() async {
+    func createInvite(permissions: Permissions) async {
         invite = nil
         await run { client in
-            self.invite = try await client.call(.invite)
+            self.invite = try await client.call(.invite(permissions: permissions))
         }
     }
 

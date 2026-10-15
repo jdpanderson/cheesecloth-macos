@@ -106,6 +106,27 @@ func status(_ edit: (inout Status) -> Void = { _ in }) throws -> Status {
     #expect(peer.stateLevel == nil)
 }
 
+@Test func onlyAnAdminMayChangeTheNetwork() throws {
+    let member = try status()
+    #expect(member.isAdmin)
+    let router = try status { $0.permissions = Permissions(admin: false, vote: true, relay: true) }
+    #expect(!router.isAdmin)
+    let outside = try status { $0.phase = .none; $0.permissions = nil }
+    #expect(!outside.isAdmin)
+}
+
+@Test func permissionsAreNamedForPeople() throws {
+    #expect(Permissions.all.names == "All")
+    #expect(Permissions(admin: false, vote: true, relay: true).names == "Voter, Relay")
+    #expect(Permissions(admin: true, vote: false, relay: true).names == "Admin, Relay")
+    #expect(Permissions(admin: true, vote: false, relay: false).names == "Admin")
+    #expect(Permissions(admin: false, vote: false, relay: false).names == "Member")
+
+    let json = try #require(try examples().first { $0.kind == "peers" }?.json)
+    let peer = try #require(try decoder.decode([Peer].self, from: Data(json.utf8)).first)
+    #expect(peer.permissions.names == "Voter, Relay")
+}
+
 @Test func longIDsAreShortened() {
     #expect(shortID("74b239929045c3f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f7a567") == "74b239929045…a567")
     #expect(shortID("short") == "short")

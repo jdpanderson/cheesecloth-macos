@@ -12,7 +12,8 @@ public enum Request: Sendable, Equatable {
     case status
     case peers
     case initialize(ipv4Range: String?, strictSecurity: Bool)
-    case invite
+    /// The new member gets only the permissions that are true.
+    case invite(permissions: Permissions)
     case join(token: String)
     case remove(node: String)
     case leave(force: Bool)
@@ -29,7 +30,8 @@ public enum Request: Sendable, Equatable {
         case .peers: ["cmd": "peers"]
         case let .initialize(range, strict):
             ["cmd": "init", "strict_security": strict, "ipv4_range": range ?? NSNull()]
-        case .invite: ["cmd": "invite"]
+        case let .invite(p):
+            ["cmd": "invite", "permissions": ["admin": p.admin, "vote": p.vote, "relay": p.relay]]
         case let .join(token): ["cmd": "join", "token": token]
         case let .remove(node): ["cmd": "remove", "node": node]
         case let .leave(force): ["cmd": "leave", "force": force]
@@ -44,6 +46,24 @@ public enum Request: Sendable, Equatable {
     public func line() throws -> Data {
         try JSONSerialization.data(withJSONObject: json, options: [.sortedKeys])
     }
+}
+
+/// What a member may do, set by its invite. It never changes.
+public struct Permissions: Codable, Sendable, Equatable {
+    /// Invite, remove, change settings, approve and reject.
+    public var admin: Bool
+    /// Be an acceptor, and take joins to the cluster.
+    public var vote: Bool
+    /// Relay control messages for other members.
+    public var relay: Bool
+
+    public init(admin: Bool, vote: Bool, relay: Bool) {
+        self.admin = admin
+        self.vote = vote
+        self.relay = relay
+    }
+
+    public static let all = Permissions(admin: true, vote: true, relay: true)
 }
 
 /// The answer to `hello`.
@@ -67,6 +87,8 @@ public struct Status: Codable, Sendable, Equatable {
     public var pendingProposal: String?
     public var ipv4: String?
     public var ipv6: String?
+    /// What this node may do; nil unless a member.
+    public var permissions: Permissions?
     public var relay: Bool
     public var `public`: Bool
     public var keepalive: Int
@@ -107,6 +129,7 @@ public struct Peer: Codable, Sendable, Equatable, Identifiable {
     public var name: String
     public var ipv4: String
     public var ipv6: String?
+    public var permissions: Permissions
     public var relay: Bool
     public var acceptor: Bool
     public var thisNode: Bool
@@ -254,6 +277,8 @@ public struct Proposal: Codable, Sendable, Equatable, Identifiable {
     public var kind: String
     public var node: String?
     public var name: String?
+    /// For a join, the new member's permissions; nil for other kinds.
+    public var permissions: Permissions?
     public var setting: Setting?
     public var proposer: String
     public var approvals: [String]

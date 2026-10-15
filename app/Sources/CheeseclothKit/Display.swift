@@ -153,6 +153,12 @@ extension Status {
         `public` ? Badge("Public", .good) : Badge("Behind NAT", .off)
     }
 
+    /// A member with the admin permission: it may invite, remove, approve
+    /// and reject. Other members, and nodes that are not members, may not.
+    public var isAdmin: Bool {
+        phase == .member && permissions?.admin == true
+    }
+
     /// Network: Relay, when this node relays for others.
     public var relayBadge: Badge? {
         relay ? Badge("Relay", .off) : nil
@@ -201,6 +207,14 @@ extension Status {
             return level
         }
         return .off
+    }
+}
+
+extension Permissions {
+    /// "All", a list such as "Voter, Relay", or "Member" with none.
+    public var names: String {
+        let names = (admin ? ["Admin"] : []) + (vote ? ["Voter"] : []) + (relay ? ["Relay"] : [])
+        return names.count == 3 ? "All" : names.isEmpty ? "Member" : names.joined(separator: ", ")
     }
 }
 

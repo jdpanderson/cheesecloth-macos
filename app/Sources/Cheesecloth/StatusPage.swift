@@ -83,6 +83,9 @@ struct StatusPage: View {
         case .network:
             Section {
                 badgeRow(s.networkBadge, s.relayBadge)
+                if let permissions = s.permissions {
+                    row("Permissions", permissions.names, help: Help.permissions)
+                }
                 if let ipv4 = s.ipv4 { row("Overlay IPv4", ipv4) }
                 if let ipv6 = s.ipv6 { row("Overlay IPv6", ipv6) }
                 row("Network conditions", s.networkConditions)
@@ -214,6 +217,14 @@ private enum Help {
         It needs at least 4 acceptors.
         Relaxed: changes are safe only while every acceptor is honest. This is \
         normal for small networks.
+        """
+    static let permissions = """
+        What this Mac may do, set by its invite.
+        Admin: invite, remove, approve and change settings.
+        Voter: be an acceptor, and take joins to the network.
+        Relay: relay messages for other members.
+        All: all three. Member: none of them. Every member can use the network \
+        and leave. Permissions never change.
         """
     static let quorum = "The number of acceptor votes needed to agree on a change."
     static let reachable =

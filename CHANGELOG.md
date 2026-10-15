@@ -7,6 +7,21 @@ such as `0.4.0-2`.
 
 ## [Unreleased]
 
+### Added
+
+- Member permissions. The Invite window has a checkbox for each permission,
+  Admin, Voter and Relay, all on by default. The Status window and join
+  approvals show the permissions, and the Peers window has a Permissions
+  column: "All", a list such as "Voter, Relay", or "Member".
+
+### Changed
+
+- The app carries cheesecloth 0.5.0-beta.1, which adds member permissions.
+  Its local API and agreed state differ from 0.5.0-beta.0: rebuild existing
+  networks.
+- On a member without the admin permission, the app has no Invite button,
+  no Remove item for peers and no Approvals item in the menu.
+
 ## [0.5.0-beta.0-1] - 2026-10-13
 
 The first test release of the menu-bar app, with cheesecloth 0.5.0-beta.0.
