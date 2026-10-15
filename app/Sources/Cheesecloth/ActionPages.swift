@@ -6,6 +6,8 @@ import SwiftUI
 
 struct InvitePage: View {
     @Environment(AppModel.self) private var model
+    /// All on by default, as `cheesecloth invite` does.
+    @State private var permissions = Permissions.all
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -13,6 +15,19 @@ struct InvitePage: View {
                 "An invite lets one new node join this network. It works once, and expires after 30 minutes."
             )
             .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Permissions").font(.headline)
+                Toggle("Admin: invite, remove, approve and change settings", isOn: $permissions.admin)
+                Toggle("Voter: be an acceptor, and take joins to the network", isOn: $permissions.vote)
+                Toggle("Relay: relay messages for other members", isOn: $permissions.relay)
+                Text(
+                    "Every member can use the network and leave. Permissions never change: to change them, the member must leave and join again."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            .toggleStyle(.checkbox)
             if let invite = model.invite {
                 Text("On the new node, join with this token:")
                 Text(invite.token)
@@ -37,7 +52,7 @@ struct InvitePage: View {
                 Spacer()
                 if model.busy { ProgressView().controlSize(.small) }
                 Button(model.invite == nil ? "Create Invite" : "Create Another") {
-                    Task { await model.createInvite() }
+                    Task { await model.createInvite(permissions: permissions) }
                 }
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)
@@ -121,6 +136,9 @@ struct ApprovalsPage: View {
                             Text("Check this ID against the one the joining node shows.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                            if let permissions = proposal.permissions {
+                                Text("Permissions: \(permissions.names)").font(.caption)
+                            }
                         }
                     }
                     Text(

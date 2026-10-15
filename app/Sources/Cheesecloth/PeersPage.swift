@@ -7,12 +7,19 @@ struct PeersPage: View {
     @Environment(AppModel.self) private var model
     @Environment(Panels.self) private var panels
 
+    /// Only an admin may invite or remove, so other members get neither.
+    private var isAdmin: Bool {
+        model.peers.first { $0.thisNode }?.permissions.admin == true
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top) {
                 Text("\(model.peers.count) members").foregroundStyle(.secondary)
-                Button("Invite", systemImage: "person.badge.plus") { panels.show(.invite) }
-                    .buttonStyle(.borderedProminent)
+                if isAdmin {
+                    Button("Invite", systemImage: "person.badge.plus") { panels.show(.invite) }
+                        .buttonStyle(.borderedProminent)
+                }
             }
             Messages()
             if model.peers.count == 1 {
@@ -22,7 +29,7 @@ struct PeersPage: View {
                 Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 8) {
                     GridRow {
                         ForEach(
-                            ["", "NAME", "IPV4", "ROLE", "CTRL", "PATH", "STATE", "ENDPOINT", "HANDSHAKE", ""],
+                            ["", "NAME", "IPV4", "ROLE", "PERMISSIONS", "CTRL", "PATH", "STATE", "ENDPOINT", "HANDSHAKE", ""],
                             id: \.self
                         ) { Text($0).font(.caption.weight(.semibold)).foregroundStyle(.secondary) }
                     }
@@ -35,7 +42,7 @@ struct PeersPage: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .frame(width: 820)
+        .frame(width: 920)
         .task { await model.loadPeers() }
     }
 
@@ -47,6 +54,7 @@ struct PeersPage: View {
                 .lineLimit(1)
             Text(peer.ipv4).monospacedDigit()
             Chip(text: peer.role + (peer.acceptor ? "*" : ""))
+            Text(peer.permissions.names).lineLimit(1)
             if peer.thisNode { Text("") } else { Chip(text: peer.control.text, level: peer.control.level) }
             Chip(text: peer.path)
             HStack(spacing: 5) {
@@ -58,7 +66,7 @@ struct PeersPage: View {
             Menu {
                 Button("Copy IP") { model.copy(peer.ipv4) }
                 Button("Copy Name") { model.copy(peer.name) }
-                if !peer.thisNode {
+                if isAdmin && !peer.thisNode {
                     Divider()
                     Button("Remove…") { model.confirmRemove(peer) }
                 }

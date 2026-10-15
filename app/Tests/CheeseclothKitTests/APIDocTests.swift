@@ -88,7 +88,8 @@ func roundTrip<T: Codable>(_ type: T.Type, _ json: String) throws {
     let documented = try examples().filter { $0.kind == "request" }.map { try plain(Data($0.json.utf8)) }
     let proposal = "6a1f0e2c9d3b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f4e5d6c7b8a9f"
     let requests: [Request] = [
-        .hello, .status, .peers, .invite, .pending, .configGet,
+        .hello, .status, .peers, .pending, .configGet,
+        .invite(permissions: Permissions(admin: true, vote: true, relay: false)),
         .initialize(ipv4Range: "100.80.11.0/24", strictSecurity: false),
         .join(token: "cc1AAAA..."),
         .remove(node: "hypnos"),
