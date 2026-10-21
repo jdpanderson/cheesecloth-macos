@@ -7,6 +7,15 @@ such as `0.4.0-2`.
 
 ## [Unreleased]
 
+## [0.5.0-beta.2-1] - 2026-10-21
+
+### Changed
+
+- The app carries cheesecloth 0.5.0-beta.2. It has dependency updates and
+  a Windows fix, and nothing that changes the app on macOS.
+
+## [0.5.0-beta.1-1] - 2026-10-15
+
 ### Added
 
 - Member permissions. The Invite window has a checkbox for each permission,
