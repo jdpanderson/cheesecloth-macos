@@ -7,6 +7,13 @@ such as `0.4.0-2`.
 
 ## [Unreleased]
 
+## [0.5.0-beta.4-1] - 2026-10-22
+
+### Changed
+
+- The app carries cheesecloth 0.5.0-beta.4. It has a Windows fix, and
+  nothing that changes the app on macOS.
+
 ## [0.5.0-beta.3-1] - 2026-10-21
 
 ### Changed
