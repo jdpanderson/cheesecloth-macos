@@ -1,7 +1,7 @@
 # What the installer packages. The format is in "Contracts" in
 # docs/REPOSITORIES.md of cheesecloth.
-release = "0.5.0-beta.3"
+release = "0.5.0-beta.4"
 
 [sha256]
- aarch64-apple-darwin = "ccc190072122799bcd815dcbc86248e6db6fad7c91eea292682cac7403bc80a2"
- x86_64-apple-darwin = "fd4736067cb04188dfacb836a7a57bab104c59859be0a8972132c7cb89bdc5f3"
+ aarch64-apple-darwin = "647b9e727b3f63c04db123358ecda1ba362acb0c8f753cd9858fc7a25398b193"
+ x86_64-apple-darwin = "021aeaf0855ca63a595e704c28cef59283fc9898ce9d6a09d8d98199e1e87144"
