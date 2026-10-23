@@ -14,11 +14,13 @@ struct PeersPage: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top) {
+            HStack {
                 Text("\(model.peers.count) members").foregroundStyle(.secondary)
+                Spacer()
                 if isAdmin {
-                    Button("Invite", systemImage: "person.badge.plus") { panels.show(.invite) }
-                        .buttonStyle(.borderedProminent)
+                    Button("Invite a new member", systemImage: "plus") { panels.show(.invite) }
+                        .labelStyle(.iconOnly)
+                        .help("Invite a new member")
                 }
             }
             Messages()
@@ -29,7 +31,7 @@ struct PeersPage: View {
                 Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 8) {
                     GridRow {
                         ForEach(
-                            ["", "NAME", "IPV4", "ROLE", "PERMISSIONS", "CTRL", "PATH", "STATE", "ENDPOINT", "HANDSHAKE", ""],
+                            ["", "NAME", "IPV4", "ROLE", "PERMISSIONS", "CONTROL", "PATH", "STATE", "ENDPOINT", "HANDSHAKE", ""],
                             id: \.self
                         ) { Text($0).font(.caption.weight(.semibold)).foregroundStyle(.secondary) }
                     }
@@ -38,9 +40,6 @@ struct PeersPage: View {
                 }
             }
             .frame(maxHeight: 480)
-            Text("* acceptor  |  CTRL relay = reached through other members")
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
         .frame(width: 920)
         .task { await model.loadPeers() }
@@ -48,18 +47,25 @@ struct PeersPage: View {
 
     private func row(_ peer: Peer) -> some View {
         GridRow {
-            Dot(level: peer.presence)
+            Dot(level: peer.presence).help(peer.presenceTooltip)
             Text(peer.thisNode ? "\(peer.name) (this)" : peer.name)
                 .foregroundStyle(peer.thisNode ? Color.accentColor : .primary)
                 .lineLimit(1)
             Text(peer.ipv4).monospacedDigit()
-            Chip(text: peer.role + (peer.acceptor ? "*" : ""))
-            Text(peer.permissions.names).lineLimit(1)
-            if peer.thisNode { Text("") } else { Chip(text: peer.control.text, level: peer.control.level) }
+            Icons(icons: peer.roleIcons)
+            Icons(icons: peer.permissions.icons)
+            if peer.thisNode {
+                Text("")
+            } else {
+                Chip(text: peer.control.text, level: peer.control.level).help(peer.controlTooltip)
+            }
             Chip(text: peer.path)
-            HStack(spacing: 5) {
-                if let level = peer.stateLevel { Dot(level: level) }
-                Text(peer.thisNode ? "-" : peer.pathDetail).lineLimit(1)
+            if let level = peer.stateLevel {
+                Dot(level: level)
+                    .help(peer.stateTooltip)
+                    .accessibilityLabel(peer.stateTooltip)
+            } else {
+                Text("-")
             }
             Text(peer.wgEndpoint ?? "-").monospacedDigit()
             Text(peer.handshakeText)
@@ -76,6 +82,22 @@ struct PeersPage: View {
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .fixedSize()
+        }
+    }
+}
+
+/// A row of icons. Each has a tooltip that names it and says what it means.
+struct Icons: View {
+    var icons: [PeerIcon]
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(icons, id: \.symbol) { icon in
+                Image(systemName: icon.symbol)
+                    .foregroundStyle(icon.dim ? Color.secondary : .primary)
+                    .help(icon.tooltip)
+                    .accessibilityLabel(icon.tooltip)
+            }
         }
     }
 }

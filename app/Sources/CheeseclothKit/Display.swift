@@ -216,7 +216,36 @@ extension Permissions {
         let names = (admin ? ["Admin"] : []) + (vote ? ["Voter"] : []) + (relay ? ["Relay"] : [])
         return names.count == 3 ? "All" : names.isEmpty ? "Member" : names.joined(separator: ", ")
     }
+
+    /// What the member may do, as icons.
+    public var icons: [PeerIcon] {
+        let icons =
+            (admin ? [PeerIcon(adminSymbol, "Admin: may invite, remove, approve and change settings")] : [])
+            + (vote ? [PeerIcon(voteSymbol, "Voter: may be an acceptor, and take joins to the network")] : [])
+            + (relay ? [PeerIcon(relaySymbol, "Relay: may relay messages for other members")] : [])
+        return icons.isEmpty ? [PeerIcon(memberSymbol, "Member: may use the network and leave", dim: true)] : icons
+    }
 }
+
+/// An icon in the peers table, with the tooltip that names it and says what
+/// it means. `dim` is for "Member", which has none of the others.
+public struct PeerIcon: Sendable, Equatable {
+    /// The name of an SF Symbol.
+    public var symbol: String
+    public var tooltip: String
+    public var dim: Bool
+
+    public init(_ symbol: String, _ tooltip: String, dim: Bool = false) {
+        self.symbol = symbol
+        self.tooltip = tooltip
+        self.dim = dim
+    }
+}
+
+private let adminSymbol = "shield"
+private let voteSymbol = "checkmark"
+private let relaySymbol = "arrow.left.arrow.right"
+private let memberSymbol = "person"
 
 extension PortMap {
     /// Mapped, Not mapped, or Requesting.
@@ -231,8 +260,19 @@ extension Peer {
     /// The dot: reached or not.
     public var presence: Level { present ? .good : .off }
 
-    /// "member" or "relay".
-    public var role: String { relay ? "relay" : "member" }
+    /// The tooltip of the presence dot.
+    public var presenceTooltip: String {
+        present ? "Present: reached now" : "Not present: not reached now"
+    }
+
+    /// What the member does now, as icons. Its permissions say what it may
+    /// do.
+    public var roleIcons: [PeerIcon] {
+        let icons =
+            (acceptor ? [PeerIcon(voteSymbol, "Acceptor: votes on changes now")] : [])
+            + (relay ? [PeerIcon(relaySymbol, "Relay: relays messages for other members now")] : [])
+        return icons.isEmpty ? [PeerIcon(memberSymbol, "Member: no other role now", dim: true)] : icons
+    }
 
     /// The control connection: yes, relay (reached through other members),
     /// or no.
@@ -242,16 +282,47 @@ extension Peer {
         return Badge("no", .off)
     }
 
+    /// The tooltip of the control connection.
+    public var controlTooltip: String {
+        if connected { return "Connected directly." }
+        if present { return "Reached through other members." }
+        return "Not reached now."
+    }
+
     /// The colour of the stable path state code.
     public var stateLevel: Level? {
         if thisNode { return nil }
         switch pathState {
         case "up": return .good
-        case "stale", "no_handshake", "waiting_to_punch", "offer_sent", "punching", "waiting_for_removal":
+        case "stale", "not_configured", "no_handshake", "waiting_to_punch", "offer_sent", "punching",
+            "waiting_for_removal":
             return .attention
         case "no_path": return .broken
         default: return .off
         }
+    }
+
+    /// What each path state means.
+    static let pathMeanings: [String: String] = [
+        "up": "WireGuard had a recent handshake with this member, so traffic flows.",
+        "not_configured": "WireGuard has no entry for this member yet.",
+        "no_handshake": "WireGuard has not had a handshake with this member yet.",
+        "waiting_to_punch": "A NAT hole punch is due, and waits for its turn.",
+        "offer_sent": "This computer offered a NAT hole punch, and waits for the answer.",
+        "punching": "Both sides are opening their NATs to reach each other.",
+        "waiting_for_removal": "The old path is being removed from WireGuard before the next try.",
+        "stale": "The last WireGuard handshake was more than 200 seconds ago. The path may be down.",
+        "no_path": "NAT hole punching failed, so there is no path to this member. It is tried again later.",
+    ]
+
+    /// The tooltip of the state dot: the daemon's detail on the first line,
+    /// then what the state means.
+    public var stateTooltip: String {
+        let detail = pathDetail.prefix(1).uppercased() + pathDetail.dropFirst()
+        // A state from a newer daemon has no meaning here, but its detail
+        // still names it.
+        guard let meaning = Peer.pathMeanings[pathState] else { return detail }
+        return "\(detail)\n\(meaning)"
     }
 
     /// "16s ago", "2m ago", "3h ago", or "-".

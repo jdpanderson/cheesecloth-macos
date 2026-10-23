@@ -81,25 +81,39 @@ func status(_ edit: (inout Status) -> Void = { _ in }) throws -> Status {
     let json = try #require(try examples().first { $0.kind == "peers" }?.json)
     var peer = try #require(try decoder.decode([Peer].self, from: Data(json.utf8)).first)
     #expect(peer.control == Badge("yes", .good))
+    #expect(peer.controlTooltip == "Connected directly.")
+    #expect(peer.presenceTooltip == "Present: reached now")
     #expect(peer.stateLevel == .good)
     #expect(peer.pathDetail == "up")
+    #expect(peer.stateTooltip == "Up\nWireGuard had a recent handshake with this member, so traffic flows.")
     #expect(peer.retryInSecs == nil)
     #expect(peer.handshakeText == "16s ago")
     peer.connected = false
     #expect(peer.control == Badge("relay", .off))
+    #expect(peer.controlTooltip == "Reached through other members.")
     peer.present = false
     #expect(peer.control == Badge("no", .off))
+    #expect(peer.controlTooltip == "Not reached now.")
     #expect(peer.presence == .off)
+    #expect(peer.presenceTooltip == "Not present: not reached now")
     peer.pathState = "no_path"
     peer.pathDetail = "no path; retry in 20s"
     peer.retryInSecs = 20
     #expect(peer.stateLevel == .broken)
     #expect(peer.pathDetail == "no path; retry in 20s")
     #expect(peer.retryInSecs == 20)
+    #expect(peer.stateTooltip.hasPrefix("No path; retry in 20s\nNAT hole punching failed"))
     peer.pathState = "punching"
     #expect(peer.stateLevel == .attention)
     peer.pathState = "no_handshake"
     #expect(peer.stateLevel == .attention)
+    peer.pathState = "not_configured"
+    #expect(peer.stateLevel == .attention)
+    // A state from a newer daemon has no meaning here, so only its detail shows.
+    peer.pathState = "new_state"
+    peer.pathDetail = "new state"
+    #expect(peer.stateLevel == .off)
+    #expect(peer.stateTooltip == "New state")
     peer.handshakeAgeSecs = 150
     #expect(peer.handshakeText == "2m ago")
     peer.thisNode = true
@@ -125,6 +139,25 @@ func status(_ edit: (inout Status) -> Void = { _ in }) throws -> Status {
     let json = try #require(try examples().first { $0.kind == "peers" }?.json)
     let peer = try #require(try decoder.decode([Peer].self, from: Data(json.utf8)).first)
     #expect(peer.permissions.names == "Voter, Relay")
+}
+
+@Test func rolesAndPermissionsAreIcons() throws {
+    let json = try #require(try examples().first { $0.kind == "peers" }?.json)
+    var peer = try #require(try decoder.decode([Peer].self, from: Data(json.utf8)).first)
+    peer.acceptor = true
+    peer.relay = true
+    #expect(peer.roleIcons.map(\.tooltip) == [
+        "Acceptor: votes on changes now", "Relay: relays messages for other members now",
+    ])
+    peer.acceptor = false
+    peer.relay = false
+    #expect(peer.roleIcons == [PeerIcon("person", "Member: no other role now", dim: true)])
+
+    #expect(Permissions.all.icons.map(\.symbol) == ["shield", "checkmark", "arrow.left.arrow.right"])
+    #expect(Permissions.all.icons.allSatisfy { !$0.dim })
+    #expect(Permissions(admin: false, vote: false, relay: false).icons == [
+        PeerIcon("person", "Member: may use the network and leave", dim: true)
+    ])
 }
 
 @Test func longIDsAreShortened() {

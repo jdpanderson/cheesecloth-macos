@@ -75,7 +75,7 @@ struct JoinPage: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Paste the token from Peers > Invite on a member.")
+            Text("On a member, open Peers and press + to make an invite. Paste its token here.")
             TextField("Token", text: $token, axis: .vertical)
                 .font(.system(.body, design: .monospaced))
                 .lineLimit(3...6)
