@@ -7,6 +7,14 @@ such as `0.4.0-2`.
 
 ## [Unreleased]
 
+### Changed
+
+- The Peers window matches the GNOME and Windows apps. Roles and
+  permissions show as icons, and the path state as a coloured dot. Each has
+  a tooltip that names it and says what it means, so the legend at the
+  bottom is gone.
+- The Invite button of the Peers window is a + at the right.
+
 ## [0.5.0-beta.6-1] - 2026-10-23
 
 ### Changed
