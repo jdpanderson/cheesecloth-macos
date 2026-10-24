@@ -114,10 +114,9 @@ cheesecloth checkout beside this one, or from the file that
 swift test --package-path app
 ```
 
-The menu-bar icon is `mockups/menubar_template.svg` and the app icon
-`mockups/app-icon.png`, from the mockups beside the repositories. Copy them to
-`app/Sources/Cheesecloth/Resources/` and `app/Bundle/AppIcon.png` when the
-design changes. The plan is in
+The menu-bar icon is `app/Sources/Cheesecloth/Resources/menubar.svg`, and the
+app icon is `app/Bundle/AppIcon.png`. Both are included in this repository.
+The plan is in
 [docs/plans/menu-bar-app.md](docs/plans/menu-bar-app.md).
 
 ### The pin file

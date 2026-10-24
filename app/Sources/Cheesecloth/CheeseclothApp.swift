@@ -113,11 +113,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// The menu-bar icon: a template image, so macOS tints it for the menu
     /// bar's appearance.
     private static func icon() -> NSImage {
-        guard let url = Bundle.module.url(forResource: "menubar_template", withExtension: "svg"),
+        guard let url = Bundle.module.url(forResource: "menubar", withExtension: "svg"),
             let image = NSImage(contentsOf: url)
         else {
-            fatalError("menubar_template.svg is missing from the app's resources")
+            fatalError("menubar.svg is missing from the app's resources")
         }
+        image.size = NSSize(width: 18, height: 16)
         image.isTemplate = true
         image.accessibilityDescription = "Cheesecloth"
         return image
