@@ -88,8 +88,8 @@ Parts:
   open. Nothing runs while no window is open.
 
 The icon is a monochrome template image, so macOS tints it. It does not
-change with the node's state. It is `mockups/menubar_template.svg`, copied to
-`app/Sources/Cheesecloth/Resources/`; copy it again when the design changes.
+change with the node's state. Its copy is in
+`app/Sources/Cheesecloth/Resources/menubar.svg`.
 
 The menu (`macos-interface.png`):
 - header: "Cheesecloth", the state ("Connected" and so on), node name and

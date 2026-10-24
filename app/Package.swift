@@ -14,8 +14,7 @@ let package = Package(
         .target(name: "CheeseclothKit"),
         .executableTarget(
             name: "Cheesecloth", dependencies: ["CheeseclothKit"],
-            // The menu-bar icon, from mockups/menubar_template.svg.
-            resources: [.copy("Resources/menubar_template.svg")]),
+            resources: [.copy("Resources/menubar.svg")]),
         .testTarget(name: "CheeseclothKitTests", dependencies: ["CheeseclothKit"]),
     ]
 )
