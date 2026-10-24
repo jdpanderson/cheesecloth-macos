@@ -7,6 +7,12 @@ such as `0.4.0-2`.
 
 ## [Unreleased]
 
+## [0.5.0-1] - 2026-10-24
+
+### Changed
+
+- The app carries cheesecloth 0.5.0.
+
 ## [0.5.0-beta.7-1] - 2026-10-24
 
 ### Changed
