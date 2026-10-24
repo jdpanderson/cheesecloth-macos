@@ -60,6 +60,7 @@ products=$(swift build "${swift_args[@]}" --show-bin-path)
 app="$stage/Cheesecloth.app"
 contents="$app/Contents"
 install -d "$contents/MacOS" "$contents/Helpers" "$contents/Resources/docs" \
+  "$contents/Resources/assets" \
   "$contents/Library/LaunchDaemons"
 sed "s/VERSION/$bundle_version/g" "$here/app/Bundle/Info.plist" >"$contents/Info.plist"
 install -m755 "$products/Cheesecloth" "$contents/MacOS/Cheesecloth"
@@ -71,6 +72,7 @@ cp -R "$products/Cheesecloth_Cheesecloth.bundle" "$contents/Resources/"
 install -m644 "$source/README.md" "$source/LICENSE" "$source/THIRD-PARTY-NOTICES.md" \
   "$contents/Resources/"
 install -m644 "$source"/docs/*.md "$contents/Resources/docs/"
+install -m644 "$source"/assets/*.svg "$contents/Resources/assets/"
 
 # The app icon, in every size an .icns holds, from app/Bundle/AppIcon.png
 # (mockups/app-icon.png).
