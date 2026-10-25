@@ -7,6 +7,14 @@ such as `0.4.0-2`.
 
 ## [Unreleased]
 
+## [0.5.0-2] - 2026-10-24
+
+### Changed
+
+- The menu's dropdown is a standard menu, so its background matches the
+  rest of the menu bar. It no longer looks more opaque than the other
+  menus.
+
 ## [0.5.0-1] - 2026-10-24
 
 ### Changed
