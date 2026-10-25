@@ -92,7 +92,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         panels.show = { [weak self] panel in self?.show(panel) }
         panels.close = { [weak self] in self?.menu.cancelTracking() }
         page = PageWindow(content: PanelView().environment(model).environment(panels))
-        page.closed = { [weak self] in self?.panels.open = nil }
+        page.closed = { [weak self] in
+            self?.panels.open = nil
+            self?.model.clearMessages()
+        }
 
         menu = NSMenu()
         menu.delegate = self
