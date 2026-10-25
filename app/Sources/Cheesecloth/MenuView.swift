@@ -1,73 +1,74 @@
 // The menu (mockups/macos-interface.png): a header with the state, and the
-// items that fit it. Items that open a page open it in the page window.
+// rows that fit it. Each becomes one NSMenuItem (see CheeseclothApp.swift),
+// so the system menu owns the material and placement. Rows that open a page
+// open it in the page window.
 
 import CheeseclothKit
 import SwiftUI
 
-struct MenuView: View {
+/// The menu's header: the app name, the state, and any error or notice.
+/// Not a row: it does nothing when clicked.
+struct MenuHeaderView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            header
-            Messages()
-            Divider()
-            items
-        }
-        .padding(12)
-        .frame(width: 300)
-    }
-
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Cheesecloth").font(.title3.bold())
-            HStack(spacing: 8) {
-                Dot(level: model.state.level)
-                Text(model.state.title).font(.headline)
-            }
-            if let detail = model.state.detail {
-                Text(detail)
-                    .foregroundStyle(.secondary)
-                    .padding(.leading, 17)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .padding(.horizontal, 6)
-    }
-
-    @ViewBuilder private var items: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            switch model.state {
-            case .connected:
-                MenuItem("Status…", "chart.bar.xaxis", panel: .status)
-                MenuItem("Peers…", "person.3", panel: .peers)
-                if !model.proposals.isEmpty {
-                    MenuItem("Approvals (\(model.proposals.count))…", "checkmark.seal", panel: .approvals)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Cheesecloth").font(.title3.bold())
+                HStack(spacing: 8) {
+                    Dot(level: model.state.level)
+                    Text(model.state.title).font(.headline)
                 }
-                // Invite is in the Peers window, and Leave Network in the
-                // Status window.
-            case .noNetwork:
-                MenuItem("Create Network…", "plus.circle", panel: .create)
-                MenuItem("Join Network…", "link", panel: .join)
-            case .waitingForApproval:
-                MenuItem("Status…", "chart.bar.xaxis", panel: .status)
-                MenuItem("Cancel Join", "xmark.circle") { model.confirmLeave(cancelJoin: true) }
-            case .leaving:
-                MenuItem("Retry Leave", "arrow.clockwise") { Task { await model.leave(force: false) } }
-                MenuItem("Open Logs…", "doc.text") { model.openLogs() }
-            case .notResponding:
-                MenuItem("Open Logs…", "doc.text") { model.openLogs() }
-            case .allowInSettings:
-                MenuItem("Open System Settings…", "gearshape") { model.openSettings() }
-            case .starting, .administratorsOnly, .needsReinstall, .quitting:
-                EmptyView()
+                if let detail = model.state.detail {
+                    Text(detail)
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 17)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
-            if model.state != .quitting {
-                Divider().padding(.vertical, 4)
-                MenuItem("Quit", "power") { model.quit() }
-            }
+            Messages()
         }
-        .disabled(model.busy)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+    }
+}
+
+/// The menu's rows, for the state at hand. The app delegate turns each into
+/// one NSMenuItem.
+@MainActor
+enum MenuRows {
+    static func rows(for model: AppModel) -> [AnyView] {
+        var rows: [AnyView] = []
+        switch model.state {
+        case .connected:
+            rows.append(AnyView(MenuItem("Status…", "chart.bar.xaxis", panel: .status)))
+            rows.append(AnyView(MenuItem("Peers…", "person.3", panel: .peers)))
+            if !model.proposals.isEmpty {
+                rows.append(
+                    AnyView(
+                        MenuItem(
+                            "Approvals (\(model.proposals.count))…", "checkmark.seal", panel: .approvals)))
+            }
+        // Invite is in the Peers window, and Leave Network in the Status
+        // window.
+        case .noNetwork:
+            rows.append(AnyView(MenuItem("Create Network…", "plus.circle", panel: .create)))
+            rows.append(AnyView(MenuItem("Join Network…", "link", panel: .join)))
+        case .waitingForApproval:
+            rows.append(AnyView(MenuItem("Status…", "chart.bar.xaxis", panel: .status)))
+            rows.append(AnyView(MenuItem("Cancel Join", "xmark.circle") { model.confirmLeave(cancelJoin: true) }))
+        case .leaving:
+            rows.append(
+                AnyView(MenuItem("Retry Leave", "arrow.clockwise") { Task { await model.leave(force: false) } }))
+            rows.append(AnyView(MenuItem("Open Logs…", "doc.text") { model.openLogs() }))
+        case .notResponding:
+            rows.append(AnyView(MenuItem("Open Logs…", "doc.text") { model.openLogs() }))
+        case .allowInSettings:
+            rows.append(AnyView(MenuItem("Open System Settings…", "gearshape") { model.openSettings() }))
+        case .starting, .administratorsOnly, .needsReinstall, .quitting:
+            break
+        }
+        return rows
     }
 }
 
@@ -101,6 +102,7 @@ struct MenuItem: View {
 
     var body: some View {
         Button {
+            panels.close()
             if let panel { panels.show(panel) } else { action() }
         } label: {
             HStack(spacing: 10) {
@@ -108,7 +110,7 @@ struct MenuItem: View {
                 Text(title)
                 Spacer()
             }
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 14)
             .padding(.vertical, 5)
             .foregroundStyle(highlighted ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
             .background(
