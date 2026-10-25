@@ -1,11 +1,7 @@
-// The menu-bar app: a status item whose menu is a rounded window under it.
-// Each menu item opens its page in a standard window in the middle of the
-// screen.
-//
-// Borderless windows placed by the app, not SwiftUI's MenuBarExtra or an
-// NSPopover: a MenuBarExtra window moves and resizes without its shadow,
-// and a popover draws an arrow that menu-bar menus do not have. The app
-// places its windows itself, so they stay put when the menu bar hides.
+// The menu-bar app: a status item with a standard NSMenu, so its material
+// and placement match the rest of the menu bar exactly. Each row is a
+// custom view, for its icon and hover highlight. Each menu item opens its
+// page in a standard window in the middle of the screen.
 
 import AppKit
 import CheeseclothKit
@@ -74,20 +70,21 @@ enum Panel: Hashable {
 }
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let model = AppModel()
     private let panels = Panels()
     private var item: NSStatusItem!
-    private var menu: RoundedWindow!
+    private var menu: NSMenu!
     private var page: PageWindow!
-    /// The status item, on its screen, when the menu opened.
-    private var icon = NSRect.zero
+    /// The screen the status item was on when the menu last opened, for
+    /// centering a page window.
+    private var screen = NSRect.zero
     private var monitors: [Any] = []
+    /// Whether the menu is open, so the model is only watched while it is.
+    private var menuIsOpen = false
 
-    /// The gap between the menu bar and the menu.
-    private static let gap: CGFloat = 5
-    /// The space kept free at the screen's edges.
-    private static let margin: CGFloat = 8
+    /// Every row's width, so they line up under each other.
+    static let menuWidth: CGFloat = 300
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // No Dock icon. The bundle's Info.plist also says so (LSUIElement);
@@ -95,18 +92,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
 
         panels.show = { [weak self] panel in self?.show(panel) }
-        menu = RoundedWindow(content: MenuView().environment(model).environment(panels))
-        menu.place = { [weak self] size in self?.placeMenu(size) ?? .zero }
+        panels.close = { [weak self] in self?.menu.cancelTracking() }
         page = PageWindow(content: PanelView().environment(model).environment(panels))
         page.closed = { [weak self] in self?.panels.open = nil }
 
+        menu = NSMenu()
+        menu.delegate = self
+
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        if let button = item.button {
-            button.image = AppDelegate.icon()
-            button.target = self
-            button.action = #selector(toggle)
-        }
-        watchEvents()
+        item.button?.image = AppDelegate.icon()
+        item.menu = menu
+        watchEscape()
         model.launch()
     }
 
@@ -124,171 +120,85 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return image
     }
 
-    @objc private func toggle() {
-        if menu.isVisible {
-            closeMenu()
-            return
+    /// Builds the menu's rows for the state at hand, right before the system
+    /// shows it.
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        var items = [hosted(MenuHeaderView().environment(model))]
+        items.append(.separator())
+        for row in MenuRows.rows(for: model) {
+            items.append(hosted(row.disabled(model.busy).environment(panels)))
         }
-        guard let button = item.button, let window = button.window else { return }
-        Task { await model.refresh() }
-        // Where the icon is now. With the menu bar set to hide, its window
-        // moves off the screen once the pointer leaves the menu bar, so the
-        // menu is placed from this, not from the icon's window later.
-        icon = RoundedWindow.onScreen(window.convertToScreen(button.convert(button.bounds, to: nil)))
+        if model.state != .quitting {
+            items.append(.separator())
+            items.append(
+                hosted(MenuItem("Quit", "power") { self.model.quit() }.disabled(model.busy).environment(panels)))
+        }
+        menu.items = items
+    }
+
+    func menuWillOpen(_ menu: NSMenu) {
+        screen = item.button?.window?.screen?.frame ?? NSScreen.main?.frame ?? .zero
         // Keep the menu bar shown while the menu is open, when it is set to
         // hide. It applies while this app is active; a click on the icon lets
         // it become active.
         NSApp.activate()
         NSMenu.setMenuBarVisible(true)
-        menu.open()
-        // The icon stays highlighted while its menu is open. This action runs
-        // inside the button's click, and the button turns its highlight off
-        // when the click ends, after this returns. So highlight it once the
-        // click is over: the next turn of the main queue.
-        DispatchQueue.main.async { [weak self] in
-            guard let self, self.menu.isVisible else { return }
-            button.highlight(true)
+        Task { await model.refresh() }
+        menuIsOpen = true
+        watchModel()
+    }
+
+    func menuDidClose(_ menu: NSMenu) {
+        menuIsOpen = false
+    }
+
+    /// Rebuilds the open menu's rows each time the model changes, so a
+    /// status update that lands while the menu is open still shows.
+    private func watchModel() {
+        withObservationTracking {
+            _ = (model.state, model.proposals, model.busy, model.error, model.notice)
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                guard let self, self.menuIsOpen else { return }
+                self.menu.update()
+                self.watchModel()
+            }
         }
     }
 
-    /// The menu's top-left corner: under the menu bar, its left edge at the
-    /// icon's, and on the screen.
-    private func placeMenu(_ size: NSSize) -> NSPoint {
-        let screen = RoundedWindow.screen(of: icon)
-        let x = min(icon.minX, screen.maxX - AppDelegate.margin - size.width)
-        return NSPoint(x: max(x, screen.minX + AppDelegate.margin), y: icon.minY - AppDelegate.gap)
+    /// Wraps `content` as one menu item's custom view, sized to fit it.
+    private func hosted<V: View>(_ content: V) -> NSMenuItem {
+        let hosting = NSHostingView(rootView: content.frame(width: AppDelegate.menuWidth, alignment: .leading))
+        hosting.frame.size = hosting.fittingSize
+        let item = NSMenuItem()
+        item.view = hosting
+        return item
     }
 
-    /// Closes the menu, and opens `panel` in the page window, in the middle
-    /// of the screen the menu was on. It replaces the page that was open.
+    /// Opens `panel` in the page window, in the middle of the screen the
+    /// menu was on. It replaces the page that was open.
     private func show(_ panel: Panel) {
-        closeMenu()
         model.clearMessages()
         if panel == .invite { model.forgetInvite() }
         panels.open = panel
         panels.shown += 1
         page.title = panel.title
         NSApp.activate()
-        page.open(on: RoundedWindow.screen(of: icon))
+        page.open(on: screen)
     }
 
-    /// Closes the page window if it is open, else the menu. False if neither
-    /// was open.
-    private func closeTop() -> Bool {
-        if page.isVisible {
-            page.close()
-        } else if menu.isVisible {
-            closeMenu()
-        } else {
-            return false
-        }
-        return true
-    }
-
-    private func closeMenu() {
-        menu.close()
-        item.button?.highlight(false)
-    }
-
-    /// Closes the menu on a click outside the app, as a menu closes, and the
-    /// page window or the menu on Escape.
-    private func watchEvents() {
-        if let outside = NSEvent.addGlobalMonitorForEvents(
-            matching: [.leftMouseDown, .rightMouseDown],
-            handler: { [weak self] _ in MainActor.assumeIsolated { self?.closeMenu() } })
-        {
-            monitors.append(outside)
-        }
+    /// Closes the page window on Escape. The menu closes itself.
+    private func watchEscape() {
         if let escape = NSEvent.addLocalMonitorForEvents(
             matching: .keyDown,
             handler: { [weak self] event in
-                guard event.keyCode == 53, let self else { return event }  // Escape
-                let closed = MainActor.assumeIsolated { self.closeTop() }
-                return closed ? nil : event
+                guard event.keyCode == 53, let self, self.page.isVisible else { return event }  // Escape
+                self.page.close()
+                return nil
             })
         {
             monitors.append(escape)
         }
-    }
-}
-
-/// A borderless, rounded window with the menu material, sized by its
-/// SwiftUI content and placed by `place`.
-@MainActor
-final class RoundedWindow: NSPanel {
-    /// The window's top-left corner on the screen, for a content size.
-    var place: (NSSize) -> NSPoint = { _ in .zero }
-
-    private var resizeWatch: (any NSObjectProtocol)?
-
-    init<V: View>(content: V) {
-        super.init(
-            contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered, defer: true)
-        isOpaque = false
-        backgroundColor = .clear
-        hasShadow = true
-        level = .popUpMenu
-        isReleasedWhenClosed = false
-        hidesOnDeactivate = false
-        collectionBehavior = [.canJoinAllSpaces, .transient, .ignoresCycle]
-
-        let host = NSHostingController(rootView: content.background(MenuMaterial()))
-        // The window takes its content's size, and follows it when it changes.
-        host.sizingOptions = [.preferredContentSize]
-        contentViewController = host
-        // Each time the content resizes the window, put it back in its place.
-        resizeWatch = NotificationCenter.default.addObserver(
-            forName: NSWindow.didResizeNotification, object: self, queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.reposition() }
-        }
-    }
-
-    // Key focus, so that Escape reaches the app and closes the menu.
-    override var canBecomeKey: Bool { true }
-
-    /// Shows the window, fading in once its content has laid out, so that it
-    /// appears at its size and place.
-    func open() {
-        alphaValue = 0
-        orderFrontRegardless()
-        makeKey()
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            self.contentView?.layoutSubtreeIfNeeded()
-            self.reposition()
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.12
-                self.animator().alphaValue = 1
-            }
-        }
-    }
-
-    /// Moves the window to its place for its size, and redraws the shadow
-    /// for its shape.
-    private func reposition() {
-        let size = frame.size
-        let topLeft = place(size)
-        setFrameOrigin(NSPoint(x: topLeft.x, y: topLeft.y - size.height))
-        invalidateShadow()
-    }
-
-    /// `rect` (a status item), moved down onto its screen if the menu bar is
-    /// hidden at the moment.
-    static func onScreen(_ rect: NSRect) -> NSRect {
-        var rect = rect
-        let top = screen(of: rect).maxY
-        if rect.maxY > top { rect.origin.y = top - rect.height }
-        return rect
-    }
-
-    /// The frame of the screen under `rect`'s middle.
-    static func screen(of rect: NSRect) -> NSRect {
-        let screen = NSScreen.screens.first {
-            $0.frame.minX <= rect.midX && rect.midX < $0.frame.maxX && $0.frame.minY <= rect.minY
-        }
-        return (screen ?? NSScreen.main)?.frame ?? .zero
     }
 }
 
@@ -348,37 +258,6 @@ final class PageWindow: NSWindow, NSWindowDelegate {
     }
 }
 
-/// The menu's background: the system menu material, behind the window, in a
-/// rounded rectangle. A mask, not a clipped layer, so that the window's
-/// shadow takes the rounded shape.
-struct MenuMaterial: NSViewRepresentable {
-    static let radius: CGFloat = 10
-
-    func makeNSView(context: Context) -> NSVisualEffectView {
-        let view = NSVisualEffectView()
-        view.material = .menu
-        view.state = .active
-        view.blendingMode = .behindWindow
-        view.maskImage = MenuMaterial.roundedMask()
-        return view
-    }
-
-    func updateNSView(_ view: NSVisualEffectView, context: Context) {}
-
-    /// A rounded rectangle that stretches without stretching its corners.
-    private static func roundedMask() -> NSImage {
-        let side = radius * 2 + 1
-        let image = NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
-            NSColor.black.setFill()
-            NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
-            return true
-        }
-        image.capInsets = NSEdgeInsets(top: radius, left: radius, bottom: radius, right: radius)
-        image.resizingMode = .stretch
-        return image
-    }
-}
-
 /// Which page is open, and how to open one.
 @MainActor
 @Observable
@@ -387,6 +266,8 @@ final class Panels {
     /// Counts the showings, so that a page shown again loads again.
     var shown = 0
     @ObservationIgnored var show: (Panel) -> Void = { _ in }
+    /// Closes the menu. Set by the app delegate.
+    @ObservationIgnored var close: () -> Void = {}
 }
 
 /// The page of the page window.
