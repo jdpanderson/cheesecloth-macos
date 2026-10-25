@@ -7,6 +7,18 @@ such as `0.4.0-2`.
 
 ## [Unreleased]
 
+## [0.5.0-4] - 2026-10-24
+
+### Changed
+
+- The menu's rows are plain menu items. They keep the system's own pointer
+  highlight, placement and tracking, like the rest of the menu bar.
+
+### Fixed
+
+- A "Copied." notice no longer lingers in the status item's menu after the
+  page that showed it closes.
+
 ## [0.5.0-2] - 2026-10-24
 
 ### Changed
