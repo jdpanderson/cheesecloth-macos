@@ -1,7 +1,7 @@
 // The menu-bar app: a status item with a standard NSMenu, so its material
-// and placement match the rest of the menu bar exactly. Each row is a
-// custom view, for its icon and hover highlight. Each menu item opens its
-// page in a standard window in the middle of the screen.
+// and placement match the rest of the menu bar exactly. See MenuView.swift
+// for the header and the rows. Each row opens its page in a standard
+// window in the middle of the screen.
 
 import AppKit
 import CheeseclothKit
@@ -80,8 +80,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// centering a page window.
     private var screen = NSRect.zero
     private var monitors: [Any] = []
-    /// Whether the menu is open, so the model is only watched while it is.
-    private var menuIsOpen = false
 
     /// Every row's width, so they line up under each other.
     static let menuWidth: CGFloat = 300
@@ -123,15 +121,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Builds the menu's rows for the state at hand, right before the system
     /// shows it.
     func menuNeedsUpdate(_ menu: NSMenu) {
-        var items = [hosted(MenuHeaderView().environment(model))]
-        items.append(.separator())
-        for row in MenuRows.rows(for: model) {
-            items.append(hosted(row.disabled(model.busy).environment(panels)))
-        }
+        let header = hosted(MenuHeaderView().environment(model))
+        header.isEnabled = false  // Not a row: never highlighted or clicked.
+        var items = [header, .separator()]
+        let rows = MenuRows.rows(for: model, panels: panels)
+        rows.forEach { $0.isEnabled = !model.busy }
+        items.append(contentsOf: rows)
         if model.state != .quitting {
             items.append(.separator())
-            items.append(
-                hosted(MenuItem("Quit", "power") { self.model.quit() }.disabled(model.busy).environment(panels)))
+            let quit = RowItem("Quit", "power") {
+                self.panels.close()
+                self.model.quit()
+            }
+            quit.isEnabled = !model.busy
+            items.append(quit)
         }
         menu.items = items
     }
@@ -143,26 +146,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // it become active.
         NSApp.activate()
         NSMenu.setMenuBarVisible(true)
-        Task { await model.refresh() }
-        menuIsOpen = true
-        watchModel()
-    }
-
-    func menuDidClose(_ menu: NSMenu) {
-        menuIsOpen = false
-    }
-
-    /// Rebuilds the open menu's rows each time the model changes, so a
-    /// status update that lands while the menu is open still shows.
-    private func watchModel() {
-        withObservationTracking {
-            _ = (model.state, model.proposals, model.busy, model.error, model.notice)
-        } onChange: { [weak self] in
-            Task { @MainActor in
-                guard let self, self.menuIsOpen else { return }
-                self.menu.update()
-                self.watchModel()
-            }
+        // The menu opens at once, with the state from the last refresh (or
+        // "Starting…", the first time); rebuild it once this refresh answers.
+        Task {
+            await model.refresh()
+            menu.update()
         }
     }
 

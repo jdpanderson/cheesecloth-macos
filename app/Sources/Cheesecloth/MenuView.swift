@@ -1,8 +1,14 @@
 // The menu (mockups/macos-interface.png): a header with the state, and the
-// rows that fit it. Each becomes one NSMenuItem (see CheeseclothApp.swift),
-// so the system menu owns the material and placement. Rows that open a page
-// open it in the page window.
+// rows that fit it. Rows that open a page open it in the page window.
+//
+// The header is a custom view, for its multi-line layout; it is not a row,
+// so it is never highlighted or clicked. The rows are plain NSMenuItems:
+// once an item has a custom view, AppKit no longer highlights or tracks it
+// at all, and the app would have to do that by hand. Plain items keep the
+// system's own highlight, which also tracks the pointer leaving a row or
+// the menu correctly, for free.
 
+import AppKit
 import CheeseclothKit
 import SwiftUI
 
@@ -33,93 +39,73 @@ struct MenuHeaderView: View {
     }
 }
 
-/// The menu's rows, for the state at hand. The app delegate turns each into
-/// one NSMenuItem.
+/// A plain menu item with a Swift closure instead of a target and a
+/// selector, and an SF Symbol for its icon.
+final class RowItem: NSMenuItem {
+    private let handler: () -> Void
+
+    init(_ title: String, _ symbol: String, handler: @escaping () -> Void) {
+        self.handler = handler
+        super.init(title: title, action: #selector(chosen), keyEquivalent: "")
+        target = self
+        let image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+        image?.isTemplate = true
+        self.image = image
+    }
+
+    @available(*, unavailable)
+    required init(coder: NSCoder) {
+        fatalError("RowItem does not support NSCoding")
+    }
+
+    @objc private func chosen() {
+        handler()
+    }
+}
+
+/// The menu's rows, for the state at hand.
 @MainActor
 enum MenuRows {
-    static func rows(for model: AppModel) -> [AnyView] {
-        var rows: [AnyView] = []
+    static func rows(for model: AppModel, panels: Panels) -> [NSMenuItem] {
+        func row(_ title: String, _ symbol: String, panel: Panel) -> NSMenuItem {
+            RowItem(title, symbol) {
+                panels.close()
+                panels.show(panel)
+            }
+        }
+        func row(_ title: String, _ symbol: String, action: @escaping () -> Void) -> NSMenuItem {
+            RowItem(title, symbol) {
+                panels.close()
+                action()
+            }
+        }
+
+        var rows: [NSMenuItem] = []
         switch model.state {
         case .connected:
-            rows.append(AnyView(MenuItem("Status…", "chart.bar.xaxis", panel: .status)))
-            rows.append(AnyView(MenuItem("Peers…", "person.3", panel: .peers)))
+            rows.append(row("Status…", "chart.bar.xaxis", panel: .status))
+            rows.append(row("Peers…", "person.3", panel: .peers))
             if !model.proposals.isEmpty {
-                rows.append(
-                    AnyView(
-                        MenuItem(
-                            "Approvals (\(model.proposals.count))…", "checkmark.seal", panel: .approvals)))
+                rows.append(row("Approvals (\(model.proposals.count))…", "checkmark.seal", panel: .approvals))
             }
         // Invite is in the Peers window, and Leave Network in the Status
         // window.
         case .noNetwork:
-            rows.append(AnyView(MenuItem("Create Network…", "plus.circle", panel: .create)))
-            rows.append(AnyView(MenuItem("Join Network…", "link", panel: .join)))
+            rows.append(row("Create Network…", "plus.circle", panel: .create))
+            rows.append(row("Join Network…", "link", panel: .join))
         case .waitingForApproval:
-            rows.append(AnyView(MenuItem("Status…", "chart.bar.xaxis", panel: .status)))
-            rows.append(AnyView(MenuItem("Cancel Join", "xmark.circle") { model.confirmLeave(cancelJoin: true) }))
+            rows.append(row("Status…", "chart.bar.xaxis", panel: .status))
+            rows.append(row("Cancel Join", "xmark.circle") { model.confirmLeave(cancelJoin: true) })
         case .leaving:
-            rows.append(
-                AnyView(MenuItem("Retry Leave", "arrow.clockwise") { Task { await model.leave(force: false) } }))
-            rows.append(AnyView(MenuItem("Open Logs…", "doc.text") { model.openLogs() }))
+            rows.append(row("Retry Leave", "arrow.clockwise") { Task { await model.leave(force: false) } })
+            rows.append(row("Open Logs…", "doc.text") { model.openLogs() })
         case .notResponding:
-            rows.append(AnyView(MenuItem("Open Logs…", "doc.text") { model.openLogs() }))
+            rows.append(row("Open Logs…", "doc.text") { model.openLogs() })
         case .allowInSettings:
-            rows.append(AnyView(MenuItem("Open System Settings…", "gearshape") { model.openSettings() }))
+            rows.append(row("Open System Settings…", "gearshape") { model.openSettings() })
         case .starting, .administratorsOnly, .needsReinstall, .quitting:
             break
         }
         return rows
-    }
-}
-
-/// One menu item. It is highlighted under the pointer, as macOS menu items
-/// are.
-struct MenuItem: View {
-    @Environment(Panels.self) private var panels
-    @Environment(\.isEnabled) private var enabled
-    @State private var hovering = false
-
-    private let title: String
-    private let symbol: String
-    private let panel: Panel?
-    private let action: () -> Void
-
-    init(_ title: String, _ symbol: String, panel: Panel) {
-        self.title = title
-        self.symbol = symbol
-        self.panel = panel
-        action = {}
-    }
-
-    init(_ title: String, _ symbol: String, action: @escaping () -> Void) {
-        self.title = title
-        self.symbol = symbol
-        panel = nil
-        self.action = action
-    }
-
-    private var highlighted: Bool { enabled && hovering }
-
-    var body: some View {
-        Button {
-            panels.close()
-            if let panel { panels.show(panel) } else { action() }
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: symbol).frame(width: 20)
-                Text(title)
-                Spacer()
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 5)
-            .foregroundStyle(highlighted ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
-            .background(
-                RoundedRectangle(cornerRadius: 5)
-                    .fill(highlighted ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.clear))
-            )
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .onHover { hovering = $0 }
     }
 }
